@@ -55,8 +55,13 @@ Test-Path "C:\Program Files\PawnIO\PawnIOLib.dll"
 # Session admin ?
 ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-# Inventaire matériel (sonde en lecture seule, à lancer en admin)
+# Sonde en lecture seule (inventory / record : admin requis ; analyze : non)
 dotnet run --project src\FanOMax.Probe -- inventory
+dotnet run --project src\FanOMax.Probe -- record --label test --duration 1m
+dotnet run --project src\FanOMax.Probe -- analyze captures\<fichier>.csv
+
+# Sessions ETW actives (FPS : chercher « FanOMaxProbe », session orpheline)
+logman query -ets
 ```
 
 ---
@@ -124,11 +129,24 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
   1. PresentMon introuvable ou bloqué (antivirus).
   2. Session ETW orpheline après un plantage (« session already exists »).
   3. Mauvais processus suivi (launcher au lieu du jeu).
-- **Correctifs :** vérifier le chemin de PresentMon ; relancer avec `--stop_existing_session` ; vérifier dans le journal quel processus est suivi.
+- **Correctifs :**
+  - Sonde : PresentMon est cherché dans `tools\PresentMon*.exe`, ou via `--presentmon <chemin>` ; l'option `--fps` est obligatoire.
+  - Session orpheline : la sonde la nettoie au démarrage (`--stop_existing_session`). Sinon : `logman stop FanOMaxProbe -ets`.
+  - Mauvais processus : le compteur retient l'application qui présente le plus d'images par seconde (colonne `fps_app` du CSV).
 
 ### 4.13 Le mini-widget n'apparaît pas par-dessus le jeu — 🔮 (limitation)
 - **Cause :** le jeu est en **plein écran exclusif** : aucune fenêtre Windows ne peut s'afficher par-dessus.
 - **Correctif :** passer le jeu en **plein écran fenêtré / sans bordure**, ou utiliser l'overlay d'AMD Adrenalin.
+
+### 4.14 Sonde et FanControl en parallèle : valeurs incohérentes — 🔮
+- **Contexte :** la sonde et FanControl utilisent tous deux LibreHardwareMonitor. Les accès à la puce Super I/O sont synchronisés par un mutex système partagé, donc la lecture simultanée est normalement sans risque.
+- **Symptôme possible :** une valeur aberrante isolée (RPM à 0, température à 0 ou 255) dans un CSV.
+- **Correctif :** ignorer les points isolés (l'analyse utilise des moyennes) ; si c'est fréquent, fermer FanControl le temps de la mesure (le BIOS reprend alors la main).
+- **Rappel :** la sonde n'écrit **jamais** les PWM. Les % enregistrés dans les colonnes `control` sont ceux imposés par FanControl ou le BIOS.
+
+### 4.15 « Droits administrateur requis » au lancement de la sonde — 🔮
+- **Cause :** `inventory` et `record` accèdent au driver PawnIO, réservé aux administrateurs.
+- **Correctif :** ouvrir le terminal avec « Exécuter en tant qu'administrateur ». `analyze` fonctionne sans droits particuliers.
 
 ---
 

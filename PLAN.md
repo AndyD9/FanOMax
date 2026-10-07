@@ -31,10 +31,12 @@
 
 | Élément | Modèle | Remarque |
 |---|---|---|
-| Carte mère | ASRock B550 Pro4 | Super I/O Nuvoton, géré par LibreHardwareMonitor |
-| CPU | AMD Ryzen 7 5800X | Températures très instables : il faut filtrer |
+| Carte mère | ASRock B550 Pro4 | Super I/O **Nuvoton NCT6796D-R** (`/lpc/nct6796dr/0`) : 7 canaux PWM, **3 ventilateurs détectés** (Fan #1, #2, #7) |
+| CPU | AMD Ryzen 7 5800X | Températures très instables : il faut filtrer. Capteur retenu : `Core (Tctl/Tdie)` (pas de décalage Tctl sur le 5800X) |
+| Réglages CPU | PBO2 Tuner : Curve Optimizer −16 à −30 par cœur, PPT 142 W, EDC 168 A, TDC 114 A, **THM limit 80 °C** | Undervolt déjà en place. La THM limit plafonne le CPU à 80 °C : au-delà, il réduit son boost |
+| Ventilateurs boîtier | Sur un **hub** | Le hub ne renvoie le régime que d'un ventilateur : un seul RPM visible pour tout le groupe |
 | Refroidissement CPU | Ventirad (air) | Forte inertie : réaction plus lente qu'une AIO, l'anticipation est d'autant plus utile |
-| GPU | AMD Radeon RX 6750 XT | ⚠️ Contrôle des ventilateurs à valider (point le moins fiable) |
+| GPU | AMD Radeon RX 6750 XT | Ventilateur **lu** (RPM) et contrôle **exposé** par LHM (`/gpu-amd/0/control/0`). Écriture à valider en phase 7 |
 | Driver | PawnIO (déjà installé par FanControl) | Remplace WinRing0, qui est signalé par Defender |
 | Référence | FanControl utilise LibreHardwareMonitorLib 0.9.6 | Lecture et contrôle déjà validés sur cette machine |
 
@@ -92,7 +94,10 @@ src/
 tests/
   FanOMax.Core.Tests/  PID, prédiction, courbes, simulateur thermique
 docs/
-  hardware-inventory.md Résultat de la sonde
+  phase1-mesures.md     Protocole de mesure de la phase 1
+  hardware-inventory.md Résultat de la sonde (généré)
+captures/               CSV et analyses de la sonde (non versionné)
+tools/                  Outils externes, ex. PresentMon (non versionné)
 PLAN.md
 TROUBLESHOOT.md
 ```
@@ -103,24 +108,38 @@ TROUBLESHOOT.md
 
 **Cible CPU : 65 °C (confort) / 70 °C (plafond visé).** Les ventilateurs du CPU et ceux du boîtier y participent.
 
-> ⚠️ **Réalisme de la cible.** Un 5800X sous ventirad dépasse généralement 80 °C en charge maximale sur tous les cœurs (type Cinebench), même avec les ventilateurs à 100 %. 65–70 °C est réaliste **en jeu**, mais probablement pas en stress test, où le PID restera saturé à 100 % (donc bruyant).
-> La phase 1 le mesurera. Si la cible est hors d'atteinte, les leviers sont **hors FanOMax**, dans le BIOS : PBO Curve Optimizer (undervolt), mode ECO 65 W ou limite PPT. On peut aussi accepter une cible plus haute en charge lourde, avec un profil « Perf ».
+> ✅ **Mesuré en phase 1** ([docs/phase1-resultats.md](docs/phase1-resultats.md)) :
+> - Cinebench à 100 % de ventilation : **77,5–79 °C** pour 128 W, juste sous la **THM limit de 80 °C** : le CPU se limite lui-même. 70 °C est hors d'atteinte en charge lourde, même avec l'undervolt déjà en place.
+> - Jeu : 69,6 °C à 49 % de ventilation pour 88 W, donc 70 °C **atteignable** avec un peu plus de ventilation (≈ 66 °C estimés à 65 %).
+> - La température suit la puissance en **3 à 7 s** (T90 = 7 s) ; le ventirad lui-même a beaucoup de marge (+2 à 3 °C en 10 min).
 
-Pour chaque ventilateur ou groupe de ventilateurs, à chaque cycle (1 s) :
+**Modèle statique mesuré** (RMS 1,9 °C, coefficient du ventilateur à confirmer) :
+`T_cpu ≈ 36,8 + 0,447·P_cpu(W) − 0,153·Ventilo(%)`
+
+Comme la température est presque une fonction directe de la puissance, l'anticipation devient un **calcul de modèle**, et le PID un **correcteur lent (PI)**. Pour chaque ventilateur ou groupe de ventilateurs, à chaque cycle (1 s) :
 
 ```
-T_filtrée  = EMA(T_brute)                       // lisse les pics du 5800X
-erreur     = T_filtrée - T_cible
-PID        = Kp·erreur + Ki·∫erreur + Kd·d(T_filtrée)/dt
-             - anti-windup : l'intégrale est bornée et gelée si la sortie est saturée
-             - dérivée calculée sur la mesure, pas sur l'erreur, et filtrée
-anticip.   = Kff · f(Puissance_W)                // feedforward : les watts annoncent la chaleur
-sortie     = clamp(PID + anticip., min%, max%)
-sortie     = limite_de_pente(sortie)            // confort acoustique : X %/s max
+P_filtrée  = moyenne(P_cpu, 20–30 s)             // ignore les pics de boost
+anticip.   = (a + b·P_filtrée − T_cible) / c     // ventilation requise selon le modèle statique
+T_filtrée  = EMA(T_brute)                        // lisse les pics du 5800X
+erreur     = T_filtrée − T_cible
+PI         = Kp·erreur + Ki·∫erreur              // corrige l'erreur résiduelle du modèle, lentement
+             - anti-windup : intégrale bornée et gelée à la saturation
+             - pas de terme dérivé (Kd = 0) : température trop rapide et trop bruitée
+sortie     = clamp(anticip. + PI, min%, max%)
+sortie     = limite_de_pente(sortie)             // confort acoustique : X %/s max
            + hystérésis à la descente
 ```
 
-Les paramètres sont réglés d'abord sur le **simulateur** à partir des données réelles de la sonde, puis affinés en **mode fantôme** (voir phase 3).
+Si la puissance dépasse ce que le modèle peut tenir à 100 % (≈ 108 W pour 70 °C), le moteur plafonne à 100 % **sans s'emballer** et le signale (cible physiquement hors d'atteinte).
+
+**Régime limité thermiquement** (Tctl ≥ THM limit − 3 °C, de façon soutenue) : le CPU tient lui-même sa température en réduisant son boost, donc la ventilation n'agit plus sur les degrés mais sur les **fréquences**. Le PI est alors suspendu et la ventilation suit le **profil** :
+- **Silence** : niveau modéré, le CPU tient 80 °C avec un peu moins de boost ;
+- **Perf** : ventilation forte pour garder les fréquences maximales.
+
+**GPU :** cible = **point chaud 80–85 °C** (mesuré : 69 °C max en jeu, donc forte marge pour réduire le bruit du ventilateur GPU).
+
+Les paramètres sont réglés d'abord sur le **simulateur** calé sur les CSV de la phase 1, puis affinés en **mode fantôme** (voir phase 3).
 
 ---
 
@@ -155,23 +174,38 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 
 ### Phase 1 : sonde en lecture seule (`FanOMax.Probe`)
 > Compatible avec FanControl en cours d'exécution. Nécessite les droits admin.
-- [ ] Inventaire : matériel, capteurs (type, identifiant, valeur), contrôles (identifiant, mode actuel)
-- [ ] Export de l'inventaire vers `docs/hardware-inventory.md`
-- [ ] Enregistrement CSV à 1 Hz : températures CPU/GPU, puissance CPU/GPU (W), charge, RPM, % PWM
-- [ ] Captures : repos (10 min), Cinebench multi-cœur (10 min), jeu (20 min), retour au repos
-- [ ] Vérifier que la **puissance du CPU** précède bien la température (calcul du délai)
-- [ ] Vérifier la lecture des **ventilateurs du GPU** (RX 6750 XT)
-- [ ] Mesurer la **température maximale atteinte** avec les ventilateurs à fond (Cinebench), pour savoir si la cible de 70 °C est atteignable
-- [ ] Prototype FPS : lancer PresentMon et lire ses mesures en direct pendant un jeu
-- **Livrable :** inventaire, fichiers CSV, délai mesuré entre puissance et température, verdict sur la cible de 70 °C, FPS lu
+> Protocole de mesure : [docs/phase1-mesures.md](docs/phase1-mesures.md)
+
+**Code (fait)**
+- [x] `LhmMonitor` (FanOMax.Hardware) : accès LHM en lecture seule, n'expose jamais `IControl`
+- [x] `inventory` : matériel, capteurs, contrôles PWM (mode, %, ventilateur associé) → `docs/hardware-inventory.md`
+- [x] `record` : CSV à 1 Hz (températures, puissance, charge, RPM, % PWM) + statut en direct, Ctrl+C ou `--duration`
+- [x] `record --fps` : FPS via PresentMon (`tools\PresentMon*.exe`), application au premier plan détectée automatiquement
+- [x] `analyze` : statistiques, verdict sur la cible de 70 °C, **réponse thermique aux échelons de puissance** (hausse immédiate, T50/T63/T90, °C/W)
+- [x] Core : `KeySensorResolver`, `StepResponseAnalyzer`, `SeriesStats`, `FpsCounter` + 26 tests unitaires
+- [x] Validé de bout en bout sur un CSV synthétique (`analyze`) et le refus sans droits admin
+
+**Mesures (à faire par l'utilisateur, en admin)**
+- [x] Inventaire réel ([docs/hardware-inventory.md](docs/hardware-inventory.md)) : les 7 capteurs clés sont trouvés
+- [x] Captures : repos (10 min), Cinebench avec ventilateurs à 100 % (15 min), jeu avec FPS (20 min)
+- [x] Délai entre puissance et température : **T50 = 3 s, T63 = 4 s, T90 = 7 s** (51 % de la hausse en 3 s)
+- [x] Vérifier la lecture des **ventilateurs du GPU** (RX 6750 XT) : RPM lu, contrôle exposé
+- [ ] Associer chaque canal (Fan #1, #2, #7) à son ventilateur physique
+- [x] Verdict 70 °C : **impossible en charge lourde** (78–79 °C à 100 %), **atteignable en jeu**
+- [x] FPS lus pendant un jeu : F1Manager24.exe détecté, 159 FPS en moyenne
+- [ ] (Optionnel, recommandé) **Balayage de ventilation à puissance constante** (30 / 60 / 100 %, 5 min chacun) pour confirmer l'effet des ventilateurs
+- **Livrable :** [docs/phase1-resultats.md](docs/phase1-resultats.md)
 
 ### Phase 2 : moteur de régulation (`FanOMax.Core`)
 - [ ] Filtres : EMA, rejet des valeurs aberrantes
 - [ ] Courbe classique (points interpolés) avec hystérésis
-- [ ] PID avec anti-windup, dérivée sur la mesure et filtrée, sortie bornée
-- [ ] Anticipation sur la puissance
+- [ ] PI avec anti-windup et sortie bornée (dérivée disponible mais désactivée par défaut, voir §5)
+- [ ] Anticipation par **modèle statique** T = a + b·P − c·Ventilo, sur puissance filtrée (20–30 s)
+- [ ] Calibrage automatique du modèle (régression) depuis des CSV de la sonde, intégré à `analyze`, **en excluant les points proches de la THM limit**
+- [ ] Détection du régime limité thermiquement, et ventilation selon le profil dans ce régime
+- [ ] Sonde : enregistrer aussi la fréquence CPU effective (« Cores (Average Effective) »), pour mesurer l'effet de la ventilation en régime limité
 - [ ] Limiteur de pente et vitesse minimale / vitesse de démarrage
-- [ ] **Simulateur thermique** (modèle du 1er ordre calé sur les CSV de la phase 1)
+- [ ] **Simulateur thermique** : réponse rapide de la puce (3–7 s) + réponse lente du ventirad, calé sur les CSV de la phase 1
 - [ ] Tests unitaires : convergence, absence d'oscillation, saturation, valeurs aberrantes, rejeu des CSV réels
 - **Livrable :** moteur testé, réglages initiaux validés sur le simulateur
 
@@ -242,13 +276,21 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Nom du projet : **FanOMax** | Aligné sur le repo GitHub |
 | 2026-10-07 | Core et Contracts en `net10.0`, le reste en `net10.0-windows` | La logique pure reste portable et testable sans matériel |
 | 2026-10-07 | Avalonia 12.1.3 + ScottPlot.Avalonia 5.1.59 | ScottPlot 5.1.59 cible explicitement Avalonia 12 |
+| 2026-10-07 | Régulation = **anticipation par modèle statique + PI lent**, sans terme dérivé | Mesuré : la température suit la puissance en 3–7 s, avec peu d'inertie du ventirad (phase 1) |
+| 2026-10-07 | Cible 70 °C **non tenable en charge lourde** : plafond à 100 % sans emballement | Mesuré : 78–79 °C sous Cinebench à 100 % de ventilation, plafonné par la THM limit (80 °C) |
+| 2026-10-07 | Régime limité thermiquement : ventilation selon le profil (Silence / Perf), PI suspendu | À la THM limit, la ventilation agit sur les fréquences, plus sur les degrés |
+| 2026-10-07 | Cible GPU : **point chaud 80–85 °C** | Choix utilisateur ; GPU largement sur-refroidi aujourd'hui (69 °C max en jeu) |
 
 ---
 
 ## 9. Questions ouvertes
-- [ ] Le contrôle des ventilateurs de la RX 6750 XT via LHM fonctionne-t-il, ou faut-il ADLX ? (phase 1)
-- [ ] Quel délai réel entre la puissance et la température sur ce 5800X et ce refroidissement ? (phase 1)
+- [~] Le contrôle des ventilateurs de la RX 6750 XT via LHM fonctionne-t-il, ou faut-il ADLX ? Lecture OK et contrôle exposé (phase 1) ; l'écriture sera testée en phase 7
+- [~] Quel ventilateur physique sur chaque canal ? Les ventilateurs de boîtier sont sur un **hub**. Reste à savoir quel canal porte le hub et lequel porte le ventirad, parmi Fan #1 (max ≈ 3 060 RPM), Fan #2 (max ≈ 1 670 RPM) et Fan #7 (max ≈ 1 500 RPM). Canaux 3, 4, 5 : probablement vides. À confirmer en phase 7 en faisant varier chaque PWM.
+- [ ] Capteurs carte mère à ignorer : `Temperature #3` (8 °C) et `#5` (12 °C) sont des entrées non branchées. Le failsafe ne doit jamais s'appuyer dessus.
+- [x] Délai entre puissance et température : T90 = 7 s (phase 1)
 - [x] Type de refroidissement CPU : **ventirad**
 - [x] Cible CPU : **65 / 70 °C**
-- [ ] Cible GPU et niveau sonore acceptable ?
-- [ ] La cible de 70 °C est-elle atteignable en charge lourde ? (mesure en phase 1)
+- [x] Cible GPU : **point chaud 80–85 °C**
+- [x] La cible de 70 °C est-elle atteignable en charge lourde ? **Non** (78–79 °C à 100 %, plafonné par la THM limit) ; oui en jeu
+- [x] Undervolt : **déjà en place** (Curve Optimizer −16 à −30 via PBO2 Tuner)
+- [ ] PBO2 Tuner se relance-t-il au démarrage de Windows ? Sinon, l'undervolt disparaît après un redémarrage et les mesures ne sont plus comparables

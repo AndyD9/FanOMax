@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# FanOMax
+# Captures de la sonde (volumineuses, et le rapport LHM brut peut contenir des numéros de série)
+captures/
+# Outils externes téléchargés (PresentMon…)
+tools/
