@@ -90,15 +90,22 @@ src/
     Calibration/         Calibrage du modèle statique (régression)
     Simulation/          Simulateur thermique CPU + ventirad
     Analysis/, Sensors/  Analyse des captures, capteurs clés
-  FanOMax.Hardware/    IHardwareBackend + implémentation LibreHardwareMonitor
+  FanOMax.Hardware/    IHardwareBackend, LhmBackend (lecture/écriture, service), LhmMonitor (lecture seule, sonde)
   FanOMax.Contracts/   DTO et interfaces IPC partagés service ↔ interface
-  FanOMax.Service/     Boucle de régulation, failsafe, IPC, SQLite, config
+  FanOMax.Service/     Service Windows : moteur (Engine/), configuration (Configuration/), watchdog, journal fantôme
   FanOMax.App/         Interface Avalonia
-  FanOMax.Probe/       Console de sonde en lecture seule (inventaire + enregistrement CSV)
+  FanOMax.Probe/       Sonde : inventory, record, analyze, calibrate, shadow-report
 tests/
-  FanOMax.Core.Tests/  PID, prédiction, courbes, simulateur thermique
+  FanOMax.Core.Tests/     Briques de régulation, calibrage, simulateur, boucle fermée
+  FanOMax.Service.Tests/  Moteur du service et règles de sécurité (faux matériel), configuration, journal fantôme
+scripts/
+  install-service.ps1   Publie, installe et démarre le service (admin)
+  uninstall-service.ps1 Arrête et supprime le service (admin)
 docs/
   phase1-mesures.md     Protocole de mesure de la phase 1
+  phase1-resultats.md   Résultats des mesures
+  phase2-regulation.md  Moteur de régulation et validation
+  phase3-service.md     Service, sécurité, installation, mode fantôme
   hardware-inventory.md Résultat de la sonde (généré)
 captures/               CSV et analyses de la sonde (non versionné)
 tools/                  Outils externes, ex. PresentMon (non versionné)
@@ -218,15 +225,20 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - **Livrable :** moteur testé, réglages initiaux validés sur le simulateur ✅
 
 ### Phase 3 : service (`FanOMax.Service` + `FanOMax.Hardware`)
-- [ ] `IHardwareBackend` + implémentation LHM
-- [ ] Boucle de régulation à 1 Hz, horloge stable
-- [ ] Config JSON rechargée à chaud, avec validation
-- [ ] **Mode fantôme** : calcule les consignes sans les écrire et les journalise, à comparer avec FanControl
-- [ ] Failsafe complet (§6) et watchdog
-- [ ] Détection de FanControl (blocage du mode écriture)
-- [ ] Collecte des FPS : PresentMon lancé par le service, suivi du processus 3D actif, remise à zéro quand aucun jeu ne tourne
-- [ ] Journaux Serilog
-- [ ] Scripts d'installation / désinstallation du service (`sc.exe` ou PowerShell)
+> Détail : [docs/phase3-service.md](docs/phase3-service.md)
+- [x] `IHardwareBackend` + `LhmBackend` (lecture/écriture) ; la sonde garde un accès strictement en lecture seule
+- [x] Boucle de régulation à 1 Hz (PeriodicTimer, dt mesuré), groupes CPU et GPU
+- [x] Config JSON commentée, générée au premier démarrage depuis le matériel détecté, rechargée à chaud, avec validation (config invalide refusée)
+- [x] **Mode fantôme** (par défaut) : consignes calculées, jamais écrites, journalisées avec le % réellement appliqué (`shadow-AAAAMMJJ.csv`)
+- [x] Failsafe complet (§6) : capteur perdu → BIOS puis reprise après 30 s, température critique → 100 %, erreurs → BIOS, arrêt → BIOS
+- [x] Watchdog sur thread dédié (boucle bloquée > 5 s → BIOS)
+- [x] Détection de FanControl : aucune écriture tant qu'il tourne, et jamais de retour au BIOS sous ses pieds
+- [x] Journaux Serilog (14 jours) avec résumé par minute
+- [x] Scripts d'installation / désinstallation, récupération automatique (2 redémarrages)
+- [x] Sonde : `shadow-report`, bilan FanOMax contre FanControl
+- [x] 25 tests du service (faux matériel) : 90 tests au total
+- [ ] ~~Collecte des FPS par le service~~ : déplacée en phase 6 (utile seulement à l'affichage)
+- [ ] **Installation par l'utilisateur et plusieurs jours en mode fantôme**
 - **Livrable :** service qui tourne en mode fantôme pendant plusieurs jours sans erreur
 
 ### Phase 4 : IPC
@@ -243,6 +255,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 ### Phase 6 : interface (`FanOMax.App`, Avalonia)
 - [ ] Icône dans la barre des tâches : état (OK / fantôme / failsafe), profil actif, ouvrir/quitter
 - [ ] Tableau de bord : températures, charge, W, RPM, % PWM, **FPS** en temps réel (ScottPlot)
+- [ ] Collecte des FPS (PresentMon) pour l'affichage, reprise de la sonde (déplacé depuis la phase 3)
 - [ ] **Mini-widget** toujours au premier plan, déplaçable et semi-transparent : temp. et charge CPU/GPU, FPS
   - Visible par-dessus les jeux en **plein écran fenêtré** (pas en plein écran exclusif)
 - [ ] Éditeur : courbe (points déplaçables), paramètres PID, anticipation, limites
@@ -291,6 +304,10 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Profils : Silence 70 °C / 50 %, Normal 67 °C / 75 %, Perf 65 °C / 100 % (cible CPU / ventilation en régime limité) ; GPU 85 / 82 / 78 °C | Encadre la plage 65–70 °C demandée ; Normal par défaut. Ajustables |
 | 2026-10-07 | Modèle CPU conservé à c = 0,153 malgré le calibrage à 0,085 (sans les points près de la THM limit) | Régulateur testé stable et précis dans les deux cas ; à trancher par un balayage de ventilation |
 | 2026-10-07 | Perte de la température : 100 % immédiatement (régulateur), puis retour au BIOS (service) | Sécurité d'abord, sans rampe |
+| 2026-10-07 | FanOMax ne rend au BIOS **que** les sorties qu'il a lui-même pilotées ; jamais en mode fantôme | Un retour au BIOS sur une sortie pilotée par FanControl lui retirerait la main |
+| 2026-10-07 | Journal des décisions en CSV quotidien (7 jours) en attendant SQLite (phase 5) | Simple, lisible, suffisant pour le bilan du mode fantôme |
+| 2026-10-07 | Groupe CPU = Fan #1, #2, #7 (ventilateurs qui tournent), pilotés au même % | Comme FanControl aujourd'hui ; le hub et le ventirad seront distingués en phase 7 si besoin |
+| 2026-10-07 | Arrêt sur erreurs matérielles avec code de sortie 1 | Windows relance le service (2 tentatives), le BIOS garde la main entre-temps |
 
 ---
 

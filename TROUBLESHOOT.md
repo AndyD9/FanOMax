@@ -9,10 +9,11 @@
 
 À faire dans l'ordre :
 
-1. **Arrêter le service proprement**, ce qui rend la main au BIOS :
+1. **Arrêter le service proprement**, ce qui rend au BIOS les sorties pilotées par FanOMax (terminal admin) :
    ```powershell
    Stop-Service FanOMax
    ```
+   En **mode fantôme**, FanOMax ne pilote rien : le problème vient alors de FanControl ou du BIOS, pas de FanOMax.
 2. Si le service ne répond pas ou si les ventilateurs restent figés : **redémarrer le PC**. Le redémarrage remet la puce Nuvoton sous le contrôle du BIOS.
 3. En dépannage temporaire, relancer **FanControl** (Rem0o), qui reste installé.
 4. Récupérer les journaux (§2) **avant** de relancer FanOMax.
@@ -25,9 +26,11 @@
 
 | Quoi | Où |
 |---|---|
-| Config | `C:\ProgramData\FanOMax\config.json` |
-| Journaux du service | `C:\ProgramData\FanOMax\logs\` |
-| Historique (SQLite) | `C:\ProgramData\FanOMax\history.db` |
+| Config (rechargée à chaud) | `C:\ProgramData\FanOMax\config.json` |
+| Journaux du service (14 jours) | `C:\ProgramData\FanOMax\logs\fanomax-AAAAMMJJ.log` |
+| Journal des décisions (7 jours) | `C:\ProgramData\FanOMax\shadow\shadow-AAAAMMJJ.csv` |
+| Binaires du service | `C:\Program Files\FanOMax\Service\` |
+| Historique (SQLite, phase 5) | `C:\ProgramData\FanOMax\history.db` |
 | Journaux de l'interface | `%LOCALAPPDATA%\FanOMax\logs\` |
 | Driver PawnIO | `C:\Program Files\PawnIO\` |
 | FanControl (référence) | `C:\Program Files (x86)\FanControl\` |
@@ -40,11 +43,24 @@
 # État du service
 Get-Service FanOMax
 
-# Dernières lignes du journal du service
-Get-Content "C:\ProgramData\FanOMax\logs\*.log" -Tail 100
+# Dernières lignes du journal du service (fichier du jour)
+Get-ChildItem "C:\ProgramData\FanOMax\logs\fanomax-*.log" | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 100
 
 # Erreurs et avertissements uniquement
 Select-String -Path "C:\ProgramData\FanOMax\logs\*.log" -Pattern "\[(ERR|FTL|WRN)\]" | Select-Object -Last 50
+
+# Changements d'état des groupes (SensorLost, ThermalLimited, Bios, Critical…)
+Select-String -Path "C:\ProgramData\FanOMax\logs\*.log" -Pattern "Groupe .* → " | Select-Object -Last 30
+
+# Bilan du mode fantôme (depuis le dossier du projet)
+& $probe shadow-report --days 1
+
+# (Ré)installer / désinstaller le service (terminal admin)
+powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
+powershell -ExecutionPolicy Bypass -File scripts\uninstall-service.ps1
+
+# Lancer le service en console pour le déboguer (terminal admin, service arrêté)
+Stop-Service FanOMax; & "C:\Program Files\FanOMax\Service\FanOMax.Service.exe"
 
 # FanControl tourne-t-il ? (conflit d'écriture PWM)
 Get-Process FanControl -ErrorAction SilentlyContinue
@@ -164,6 +180,27 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 ### 4.18 `calibrate` donne des coefficients très différents d'une fois à l'autre — 🔮
 - **Causes :** trop peu de fenêtres stables (GPU surtout : sa puissance varie beaucoup en jeu), ou captures faites avec des réglages CPU différents (Hydra, §4.16).
 - **Correctif :** combiner plusieurs captures longues faites avec les mêmes réglages ; vérifier dans `docs\thermal-model.md` le nombre de fenêtres retenues (≥ 50 conseillé) et l'erreur RMS (≤ 2 °C).
+
+### 4.19 Le service ne démarre pas ou s'arrête aussitôt — 🔮
+- **Diagnostic :** dernières lignes du journal (§3). Messages possibles :
+  - « Droits administrateur requis » : le service ne tourne pas sous le compte SYSTEM. Réinstaller avec `install-service.ps1`.
+  - « Impossible d'ouvrir LibreHardwareMonitor » : driver PawnIO absent ou bloqué (§4.1, §4.3). Windows relance le service deux fois, puis abandonne.
+  - « Trop d'erreurs consécutives » : erreurs matérielles répétées ; l'exception est dans le journal juste au-dessus.
+- **Rien dans le journal :** lancer le service en console (§3) pour voir l'erreur directement. Vérifier que le runtime .NET 10 est installé (`dotnet --list-runtimes`).
+
+### 4.20 « Configuration refusée » ou « Groupe désactivé » dans le journal — 🔮
+- **Configuration refusée :** `config.json` invalide (sortie PWM dans deux groupes, cible ≥ température critique, intervalle hors 0,5–5 s…). La configuration précédente reste active ; corriger le fichier et enregistrer.
+- **Groupe désactivé :** un capteur ou une sortie PWM du groupe est introuvable (identifiant mal recopié, ou changement de matériel/pilote). Comparer avec `docs\hardware-inventory.md` (relancer `inventory` si besoin). Les autres groupes continuent de fonctionner.
+- **JSON illisible :** le fichier accepte les commentaires `//`, mais une virgule ou un guillemet manquant empêche toute lecture. Pour repartir de zéro : supprimer `config.json` et redémarrer le service, qui en régénère un (en mode fantôme).
+
+### 4.21 Mode `Active` configuré, mais FanOMax ne pilote rien — 🔮
+- **Cause n° 1 :** FanControl tourne (journal : « FanControl est en cours d'exécution »). C'est voulu : FanOMax refuse d'écrire tant qu'il est présent. Fermer FanControl **et** désactiver son démarrage automatique.
+- **Cause n° 2 :** groupe rendu au BIOS après une perte de capteur (état `Bios`) : reprise automatique après 30 s de valeurs valides.
+- **Vérification :** le résumé par minute du journal indique `[pilotage]`, `[fantôme]` ou `[Active bloqué (FanControl)]`.
+
+### 4.22 Le dossier `shadow` grossit — 🔮
+- **Ordre de grandeur :** environ 15 à 20 Mo par jour (2 groupes, 1 ligne par seconde). Conservation par défaut : 7 jours.
+- **Correctif :** baisser `ShadowLog.RetentionDays`, ou `ShadowLog.Enabled: false` une fois la phase de validation terminée.
 
 ---
 

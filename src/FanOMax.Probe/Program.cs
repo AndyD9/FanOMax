@@ -12,6 +12,7 @@ try
         "record" => RequireHardwareAccess() ?? await RecordCommand.RunAsync(cli).ConfigureAwait(false),
         "analyze" => AnalyzeCommand.Run(cli),
         "calibrate" => CalibrateCommand.Run(cli),
+        "shadow-report" => ShadowReportCommand.Run(cli),
         _ => PrintUsage(),
     };
 }
@@ -55,6 +56,9 @@ static int PrintUsage()
 
           calibrate <capture.csv> [autres.csv…] [--thm 80] [--cpu-fan texte] [--gpu-fan texte] [--out docs\thermal-model.md]
               Recalibre les modèles thermiques CPU et GPU (T ≈ a + b·P − c·Ventilo%).
+
+          shadow-report [--days 1] [--dir C:\ProgramData\FanOMax\shadow] [--out captures\shadow-report.md]
+              Bilan du mode fantôme : décisions de FanOMax comparées à ce que FanControl applique.
         """);
     return 1;
 }

@@ -9,5 +9,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FanOMax.Core.Tests/FanOMax.Core.Tests.csproj" />
+    <Project Path="tests/FanOMax.Service.Tests/FanOMax.Service.Tests.csproj" />
   </Folder>
 </Solution>
