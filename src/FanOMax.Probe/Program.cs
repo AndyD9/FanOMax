@@ -11,6 +11,7 @@ try
         "inventory" => RequireHardwareAccess() ?? InventoryCommand.Run(cli),
         "record" => RequireHardwareAccess() ?? await RecordCommand.RunAsync(cli).ConfigureAwait(false),
         "analyze" => AnalyzeCommand.Run(cli),
+        "calibrate" => CalibrateCommand.Run(cli),
         _ => PrintUsage(),
     };
 }
@@ -51,6 +52,9 @@ static int PrintUsage()
 
           analyze <fichier.csv> [--target 70] [--temp texte] [--power texte] [--min-jump 30]
               Statistiques, cible CPU, réponse thermique aux échelons de puissance.
+
+          calibrate <capture.csv> [autres.csv…] [--thm 80] [--cpu-fan texte] [--gpu-fan texte] [--out docs\thermal-model.md]
+              Recalibre les modèles thermiques CPU et GPU (T ≈ a + b·P − c·Ventilo%).
         """);
     return 1;
 }

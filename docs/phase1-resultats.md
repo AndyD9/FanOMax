@@ -10,7 +10,7 @@
 | `cinebench-100pct` | 15 min | Cinebench multi-cœur, **ventilateurs à 100 %** | 78–79 °C en charge | 128 W en charge | 100 % |
 | `jeu` | 20 min | F1 Manager 24, FPS via PresentMon | 69.6 / 72.5 °C | 88 W | 49 % (fixe) |
 
-## 2. Réglages CPU en place (PBO2 Tuner)
+## 2. Réglages CPU en place (Hydra)
 
 | Réglage | Valeur |
 |---|---|
@@ -19,7 +19,9 @@
 | **THM limit** | **80 °C** |
 | Fréquence max | 0 (pas de dépassement du boost) |
 
-> Ces réglages sont appliqués par PBO2 Tuner à l'exécution, et non dans le BIOS. Si l'outil ne se relance pas au démarrage, ils sont perdus au redémarrage et le CPU revient aux réglages du BIOS. Toujours comparer des captures faites avec les mêmes réglages.
+> Ces réglages sont appliqués par **Hydra** à chaque démarrage de Windows (et non dans le BIOS). Toutes les captures ont été faites avec Hydra actif. Si Hydra est désactivé ou si son profil change, le modèle thermique du §4 n'est plus valable et il faut refaire les mesures.
+>
+> Score Cinebench obtenu pendant la capture : **3 384** (ventilateurs à 100 %, THM limit 80 °C, 128 W, sous la limite PPT de 142 W).
 
 ## 3. Verdicts
 

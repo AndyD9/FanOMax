@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Séries réelles extraites des captures de la phase 1 (CPU, GPU, ventilation). -->
+    <None Include="Data\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\FanOMax.Core\FanOMax.Core.csproj" />
   </ItemGroup>
 

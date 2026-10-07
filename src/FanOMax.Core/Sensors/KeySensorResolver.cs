@@ -10,6 +10,9 @@ public enum KeySensor
     GpuHotSpot,
     GpuPower,
     GpuLoad,
+
+    /// <summary>Fréquence effective moyenne des cœurs : mesure le bridage en régime limité thermiquement.</summary>
+    CpuClock,
 }
 
 /// <summary>
@@ -32,6 +35,7 @@ public static class KeySensorResolver
         KeySensor.GpuHotSpot => FindBest(sensors, GpuPrefixes, SensorKind.Temperature, ["Hot Spot"], fallbackToFirst: false),
         KeySensor.GpuPower => FindBest(sensors, GpuPrefixes, SensorKind.Power, ["Package", "Total", "Board"]),
         KeySensor.GpuLoad => FindBest(sensors, GpuPrefixes, SensorKind.Load, ["GPU Core", "D3D 3D", "Core"]),
+        KeySensor.CpuClock => FindBest(sensors, CpuPrefixes, SensorKind.Clock, ["Cores (Average Effective)", "Cores (Average)"], fallbackToFirst: false),
         _ => -1,
     };
 

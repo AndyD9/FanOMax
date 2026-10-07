@@ -13,6 +13,9 @@ public class KeySensorResolverTests
         ("/amdcpu/0/temperature/3", "CCD1 (Tdie)"),
         ("/amdcpu/0/power/0", "Package"),
         ("/amdcpu/0/power/1", "Core #1"),
+        ("/amdcpu/0/clock/1", "Cores (Average)"),
+        ("/amdcpu/0/clock/2", "Cores (Average Effective)"),
+        ("/amdcpu/0/clock/3", "Core #1"),
         ("/gpu-amd/0/temperature/0", "GPU Core"),
         ("/gpu-amd/0/temperature/2", "GPU Hot Spot"),
         ("/gpu-amd/0/power/0", "GPU Core"),
@@ -31,6 +34,7 @@ public class KeySensorResolverTests
     [InlineData(KeySensor.GpuHotSpot, "/gpu-amd/0/temperature/2")]
     [InlineData(KeySensor.GpuPower, "/gpu-amd/0/power/3")]
     [InlineData(KeySensor.GpuLoad, "/gpu-amd/0/load/0")]
+    [InlineData(KeySensor.CpuClock, "/amdcpu/0/clock/2")]
     public void Find_PicksTheExpectedSensor(KeySensor key, string expectedId)
     {
         var index = KeySensorResolver.Find(Sensors, key);

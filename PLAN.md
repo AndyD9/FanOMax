@@ -33,7 +33,7 @@
 |---|---|---|
 | Carte mère | ASRock B550 Pro4 | Super I/O **Nuvoton NCT6796D-R** (`/lpc/nct6796dr/0`) : 7 canaux PWM, **3 ventilateurs détectés** (Fan #1, #2, #7) |
 | CPU | AMD Ryzen 7 5800X | Températures très instables : il faut filtrer. Capteur retenu : `Core (Tctl/Tdie)` (pas de décalage Tctl sur le 5800X) |
-| Réglages CPU | PBO2 Tuner : Curve Optimizer −16 à −30 par cœur, PPT 142 W, EDC 168 A, TDC 114 A, **THM limit 80 °C** | Undervolt déjà en place. La THM limit plafonne le CPU à 80 °C : au-delà, il réduit son boost |
+| Réglages CPU | Appliqués au démarrage par **Hydra** : Curve Optimizer −16 à −30 par cœur, PPT 142 W, EDC 168 A, TDC 114 A, **THM limit 80 °C** | Undervolt déjà en place. La THM limit plafonne le CPU à 80 °C : au-delà, il réduit son boost. Toutes les mesures sont faites avec Hydra actif |
 | Ventilateurs boîtier | Sur un **hub** | Le hub ne renvoie le régime que d'un ventilateur : un seul RPM visible pour tout le groupe |
 | Refroidissement CPU | Ventirad (air) | Forte inertie : réaction plus lente qu'une AIO, l'anticipation est d'autant plus utile |
 | GPU | AMD Radeon RX 6750 XT | Ventilateur **lu** (RPM) et contrôle **exposé** par LHM (`/gpu-amd/0/control/0`). Écriture à valider en phase 7 |
@@ -85,7 +85,11 @@ FanOMax.slnx              Solution (nouveau format XML)
 Directory.Build.props     Paramètres communs (net10.0, nullable, warnings traités en erreurs)
 Directory.Packages.props  Versions NuGet centralisées
 src/
-  FanOMax.Core/        Logique pure : PID, prédiction, courbes, modèles. Aucune dépendance au matériel.
+  FanOMax.Core/        Logique pure, aucune dépendance au matériel :
+    Control/             Régulateur, PI, filtres, garde-fou capteurs, courbe, modèle statique, profils
+    Calibration/         Calibrage du modèle statique (régression)
+    Simulation/          Simulateur thermique CPU + ventirad
+    Analysis/, Sensors/  Analyse des captures, capteurs clés
   FanOMax.Hardware/    IHardwareBackend + implémentation LibreHardwareMonitor
   FanOMax.Contracts/   DTO et interfaces IPC partagés service ↔ interface
   FanOMax.Service/     Boucle de régulation, failsafe, IPC, SQLite, config
@@ -197,17 +201,21 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - **Livrable :** [docs/phase1-resultats.md](docs/phase1-resultats.md)
 
 ### Phase 2 : moteur de régulation (`FanOMax.Core`)
-- [ ] Filtres : EMA, rejet des valeurs aberrantes
-- [ ] Courbe classique (points interpolés) avec hystérésis
-- [ ] PI avec anti-windup et sortie bornée (dérivée disponible mais désactivée par défaut, voir §5)
-- [ ] Anticipation par **modèle statique** T = a + b·P − c·Ventilo, sur puissance filtrée (20–30 s)
-- [ ] Calibrage automatique du modèle (régression) depuis des CSV de la sonde, intégré à `analyze`, **en excluant les points proches de la THM limit**
-- [ ] Détection du régime limité thermiquement, et ventilation selon le profil dans ce régime
-- [ ] Sonde : enregistrer aussi la fréquence CPU effective (« Cores (Average Effective) »), pour mesurer l'effet de la ventilation en régime limité
-- [ ] Limiteur de pente et vitesse minimale / vitesse de démarrage
-- [ ] **Simulateur thermique** : réponse rapide de la puce (3–7 s) + réponse lente du ventirad, calé sur les CSV de la phase 1
-- [ ] Tests unitaires : convergence, absence d'oscillation, saturation, valeurs aberrantes, rejeu des CSV réels
-- **Livrable :** moteur testé, réglages initiaux validés sur le simulateur
+> Détail et résultats : [docs/phase2-regulation.md](docs/phase2-regulation.md)
+- [x] Filtres (EMA 10 s, moyenne de puissance 25 s) et garde-fou capteurs (absent, hors plage, figé ; maintien 3 s puis « perdu »)
+- [x] Courbe classique (points interpolés) avec hystérésis
+- [x] PI avec anti-windup (intégrale bornée et gelée à la saturation) ; dérivée disponible mais désactivée
+- [x] Anticipation par **modèle statique** T = a + b·P − c·Ventilo, sur puissance filtrée
+- [x] Calibrage du modèle (régression) : commande `calibrate` de la sonde, **en excluant les points proches de la THM limit**
+- [x] Détection du régime limité thermiquement, ventilation selon le profil dans ce régime
+- [x] Sonde : fréquence CPU effective enregistrée (« Cores (Average Effective) »)
+- [x] Limiteur de pente (+5 %/s, −1 %/s), zone morte 1 %, ventilation minimale
+- [ ] ~~Vitesse de démarrage~~ : inutile tant que la ventilation minimale reste > 0 (ventilateurs jamais arrêtés)
+- [x] **Simulateur thermique** à deux nœuds (puce + ventirad) avec THM limit, validé contre les captures réelles (jeu : 0,56 °C d'erreur)
+- [x] Profils Silence / Normal / Perf pour le CPU et le GPU (modèle GPU calibré sur la capture de jeu)
+- [x] 65 tests : briques, calibrage, simulateur, **boucle fermée sur les vraies séries de puissance** (cible tenue à ±0,2 °C en jeu, sans yoyo), robustesse à l'incertitude du modèle, défauts capteurs
+- [ ] GPU en boucle fermée : à valider en mode fantôme (phase 3), le simulateur étant calé sur le CPU
+- **Livrable :** moteur testé, réglages initiaux validés sur le simulateur ✅
 
 ### Phase 3 : service (`FanOMax.Service` + `FanOMax.Hardware`)
 - [ ] `IHardwareBackend` + implémentation LHM
@@ -280,6 +288,9 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Cible 70 °C **non tenable en charge lourde** : plafond à 100 % sans emballement | Mesuré : 78–79 °C sous Cinebench à 100 % de ventilation, plafonné par la THM limit (80 °C) |
 | 2026-10-07 | Régime limité thermiquement : ventilation selon le profil (Silence / Perf), PI suspendu | À la THM limit, la ventilation agit sur les fréquences, plus sur les degrés |
 | 2026-10-07 | Cible GPU : **point chaud 80–85 °C** | Choix utilisateur ; GPU largement sur-refroidi aujourd'hui (69 °C max en jeu) |
+| 2026-10-07 | Profils : Silence 70 °C / 50 %, Normal 67 °C / 75 %, Perf 65 °C / 100 % (cible CPU / ventilation en régime limité) ; GPU 85 / 82 / 78 °C | Encadre la plage 65–70 °C demandée ; Normal par défaut. Ajustables |
+| 2026-10-07 | Modèle CPU conservé à c = 0,153 malgré le calibrage à 0,085 (sans les points près de la THM limit) | Régulateur testé stable et précis dans les deux cas ; à trancher par un balayage de ventilation |
+| 2026-10-07 | Perte de la température : 100 % immédiatement (régulateur), puis retour au BIOS (service) | Sécurité d'abord, sans rampe |
 
 ---
 
@@ -292,5 +303,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] Cible CPU : **65 / 70 °C**
 - [x] Cible GPU : **point chaud 80–85 °C**
 - [x] La cible de 70 °C est-elle atteignable en charge lourde ? **Non** (78–79 °C à 100 %, plafonné par la THM limit) ; oui en jeu
-- [x] Undervolt : **déjà en place** (Curve Optimizer −16 à −30 via PBO2 Tuner)
-- [ ] PBO2 Tuner se relance-t-il au démarrage de Windows ? Sinon, l'undervolt disparaît après un redémarrage et les mesures ne sont plus comparables
+- [x] Undervolt : **déjà en place** (Curve Optimizer −16 à −30)
+- [x] Réglages persistants : **oui**, Hydra se lance au démarrage de Windows et les applique
+- [ ] Coût en performance de la THM limit à 80 °C : comparer le score Cinebench (3 384 à 80 °C) et la fréquence effective avec une limite plus haute (décision utilisateur, hors FanOMax). La sonde enregistre désormais la fréquence CPU
+- [ ] Effet réel des ventilateurs sur le CPU (c = 0,085 ou 0,153 °C/%) : balayage de ventilation, voir [docs/phase1-mesures.md](docs/phase1-mesures.md) §6

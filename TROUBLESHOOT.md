@@ -90,18 +90,20 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Cause :** comportement normal des Ryzen (boost d'un seul cœur, capteur Tctl très réactif).
 - **Correctif :** ce n'est pas un bug. Le filtre EMA doit absorber ces sauts. Si les ventilateurs réagissent quand même : augmenter la constante du filtre ou réduire `Kd`.
 
-### 4.5 Le PID oscille (ventilateurs qui montent et descendent en boucle) — 🔮
-- **Diagnostic :** dans l'historique, superposer consigne, mesure et % PWM. Une oscillation régulière signale un gain trop fort.
-- **Réglage, dans cet ordre :**
-  1. Baisser `Kp` de 30 %.
-  2. Si dépassement lent : baisser `Ki`.
-  3. Si réaction nerveuse aux pics : baisser `Kd` ou filtrer davantage.
-  4. Vérifier que le limiteur de pente et l'hystérésis sont actifs.
-- Toujours valider un nouveau réglage sur le **simulateur** avant de l'appliquer au matériel.
+### 4.5 La régulation oscille (ventilateurs qui montent et descendent en boucle) — 🔮
+- **Référence :** en simulation sur la vraie série de jeu, la consigne varie de σ ≈ 2,7 % et parcourt ≈ 8 %/min (docs/phase2-regulation.md §4). Nettement plus = anomalie.
+- **Diagnostic :** dans l'historique, superposer température filtrée, anticipation (`Feedforward`), correction (`Correction`) et % PWM.
+  - L'**anticipation** bouge beaucoup : la puissance varie trop vite. Allonger `PowerWindowSeconds` (25 s par défaut).
+  - La **correction** oscille : gain PI trop fort. Baisser `Kp` (2 %/°C) de 30 %, puis `Ki` (0,05).
+  - Petits sauts permanents : augmenter `Deadband` (1 %) ou baisser `MaxRisePerSecond`.
+- `Kd` doit rester à 0 : la température du 5800X est trop rapide et bruitée.
+- **Toujours** valider un nouveau réglage avec les tests de boucle fermée (`ClosedLoopTests`) avant de l'appliquer au matériel.
 
-### 4.6 Le PID n'atteint jamais la cible / reste saturé — 🔮
-- **Cause :** cible irréaliste pour le refroidissement (par exemple 55 °C sous Cinebench), ou intégrale emballée.
-- **Correctif :** relever la cible ; vérifier que l'anti-windup gèle bien l'intégrale à la saturation (test unitaire dédié).
+### 4.6 La cible n'est jamais atteinte / ventilation bloquée à 100 % — 🔮
+- **Mode `TargetUnreachable`** : la puissance dépasse ce que le refroidissement peut tenir (≈ 108 W pour 70 °C à 100 %). Normal en charge lourde : relever la cible ou choisir un autre profil.
+- **Mode `ThermalLimited`** : le CPU est à sa THM limit (80 °C) et se bride lui-même ; la ventilation suit le profil (Silence 50 %, Normal 75 %, Perf 100 %). C'est voulu.
+- **Ni l'un ni l'autre, et la correction PI reste très positive** : le modèle surestime l'effet des ventilateurs. Recalibrer (`calibrate`, docs/phase2-regulation.md §6).
+- L'anti-emballement est couvert par des tests (`PiController_DoesNotWindUpWhileSaturated`, `HeavyLoad_EntersThermalLimitedMode_ThenRecoversWithoutWindup`).
 
 ### 4.7 Un ventilateur s'arrête à bas régime — 🔮
 - **Cause :** PWM sous le seuil de démarrage ou de maintien du ventilateur.
@@ -147,6 +149,21 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 ### 4.15 « Droits administrateur requis » au lancement de la sonde — 🔮
 - **Cause :** `inventory` et `record` accèdent au driver PawnIO, réservé aux administrateurs.
 - **Correctif :** ouvrir le terminal avec « Exécuter en tant qu'administrateur ». `analyze` fonctionne sans droits particuliers.
+
+### 4.16 Comportement thermique différent d'un jour à l'autre (Hydra) — 🔮
+- **Contexte :** les réglages CPU (Curve Optimizer, PPT, THM limit 80 °C) sont appliqués par **Hydra** au démarrage de Windows, pas par le BIOS. Le modèle thermique de FanOMax a été calé avec Hydra actif.
+- **Symptômes :** températures nettement plus hautes ou plus basses qu'avant à charge égale, régulation qui vise mal, CPU qui dépasse 80 °C (la THM limit n'est plus appliquée).
+- **Causes probables :** Hydra ne s'est pas lancé (mise à jour, démarrage rapide de Windows, plantage), ou son profil a changé.
+- **Correctifs :** vérifier que Hydra tourne (`Get-Process HYDRA`) et que son profil est le bon ; si les réglages ont changé volontairement, refaire les captures et recalibrer le modèle.
+- **À surveiller :** Hydra et LibreHardwareMonitor dialoguent tous deux avec le gestionnaire interne du CPU (SMU). Un conflit d'accès est rare, mais pourrait donner des lectures CPU aberrantes ponctuelles ; si c'est le cas, le noter dans le journal (§5).
+
+### 4.17 `calibrate` : « effet des ventilateurs non identifiable » — 🔮
+- **Cause :** dans les captures, la ventilation a trop peu varié (σ < 5 %), ou l'effet ajusté est non physique (un ventilateur qui réchaufferait). Le coefficient `c` est alors repris du modèle actuel.
+- **Correctif :** faire un balayage de ventilation à puissance constante (docs/phase1-mesures.md §6), puis relancer `calibrate` avec toutes les captures.
+
+### 4.18 `calibrate` donne des coefficients très différents d'une fois à l'autre — 🔮
+- **Causes :** trop peu de fenêtres stables (GPU surtout : sa puissance varie beaucoup en jeu), ou captures faites avec des réglages CPU différents (Hydra, §4.16).
+- **Correctif :** combiner plusieurs captures longues faites avec les mêmes réglages ; vérifier dans `docs\thermal-model.md` le nombre de fenêtres retenues (≥ 50 conseillé) et l'erreur RMS (≤ 2 °C).
 
 ---
 

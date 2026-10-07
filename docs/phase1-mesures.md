@@ -80,6 +80,26 @@ Ensuite, me transmettre `docs\hardware-inventory.md` et les fichiers `captures\*
 
 > Le dossier `captures\` n'est pas versionné (fichiers volumineux, et `lhm-report.txt` peut contenir des numéros de série).
 
+## 6. Balayage de ventilation (optionnel, recommandé)
+
+Objectif : mesurer **l'effet réel des ventilateurs** sur la température CPU à puissance constante (incertain aujourd'hui : 0,085 à 0,153 °C par %).
+
+1. Lancer un jeu stable (une scène qui charge le CPU de façon régulière, autour de 80–90 W) et y rester.
+2. Lancer l'enregistrement :
+   ```powershell
+   & $probe record --label balayage --duration 16m --fps
+   ```
+3. Dans **FanControl**, mettre les ventilateurs **CPU et boîtier** à une valeur fixe, en changeant toutes les 5 min, sans quitter le jeu :
+   - 0 à 5 min : **30 %** ;
+   - 5 à 10 min : **60 %** ;
+   - 10 à 15 min : **100 %**.
+4. Remettre les courbes habituelles.
+5. Recalibrer avec toutes les captures :
+   ```powershell
+   & $probe calibrate (Get-ChildItem captures\*.csv | % FullName)
+   ```
+   Le rapport `docs\thermal-model.md` indique si l'effet des ventilateurs est identifié, et la ligne de code à reporter dans `StaticThermalModel`.
+
 ## En cas de problème
 
 Voir [TROUBLESHOOT.md](../TROUBLESHOOT.md), en particulier §4.1 (capteurs absents), §4.12 (FPS absents) et §4.14 (sonde et FanControl en parallèle).

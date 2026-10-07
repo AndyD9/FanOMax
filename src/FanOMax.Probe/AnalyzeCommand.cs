@@ -12,8 +12,6 @@ namespace FanOMax.Probe;
 /// </summary>
 internal static class AnalyzeCommand
 {
-    private const int FirstSensorColumn = 4;
-
     public static int Run(CommandLine cli)
     {
         if (cli.Arguments.Count == 0 || !File.Exists(cli.Arguments[0]))
@@ -23,7 +21,7 @@ internal static class AnalyzeCommand
         }
 
         var path = cli.Arguments[0];
-        var data = Load(path);
+        var data = CaptureFile.Load(path);
         var target = cli.GetDouble("target", 70);
 
         var report = BuildReport(path, data, cli, target);
@@ -35,39 +33,7 @@ internal static class AnalyzeCommand
         return 0;
     }
 
-    private sealed record Capture(
-        IReadOnlyList<(string Id, string Name)> Sensors,
-        double[] Time,
-        double?[] Fps,
-        string[] FpsApp,
-        double?[][] Values);
-
-    private static Capture Load(string path)
-    {
-        var lines = File.ReadAllLines(path);
-        var header = Csv.SplitLine(lines[0]);
-        var sensors = header.Skip(FirstSensorColumn)
-            .Select(h => h.Split('|', 2))
-            .Select(p => (Id: p[0], Name: p.Length > 1 ? p[1] : p[0]))
-            .ToList();
-
-        var rows = lines.Skip(1).Where(l => l.Length > 0).Select(Csv.SplitLine).ToList();
-        var values = new double?[sensors.Count][];
-        for (var c = 0; c < sensors.Count; c++)
-        {
-            var column = FirstSensorColumn + c;
-            values[c] = rows.Select(r => column < r.Count ? Csv.ParseNumber(r[column]) : null).ToArray();
-        }
-
-        return new Capture(
-            sensors,
-            rows.Select(r => Csv.ParseNumber(r[1]) ?? 0).ToArray(),
-            rows.Select(r => Csv.ParseNumber(r[2])).ToArray(),
-            rows.Select(r => r[3]).ToArray(),
-            values);
-    }
-
-    private static string BuildReport(string path, Capture data, CommandLine cli, double target)
+    private static string BuildReport(string path, CaptureFile data, CommandLine cli, double target)
     {
         var sb = new StringBuilder();
         var duration = data.Time.Length > 0 ? data.Time[^1] : 0;
@@ -77,15 +43,16 @@ internal static class AnalyzeCommand
         sb.AppendLine(CultureInfo.InvariantCulture, $"Durée : {TimeSpan.FromSeconds(duration):hh\\:mm\\:ss} · {data.Time.Length} échantillons");
         sb.AppendLine();
 
-        var cpuTemp = Resolve(data, cli.Get("temp"), KeySensor.CpuTemperature);
-        var cpuPower = Resolve(data, cli.Get("power"), KeySensor.CpuPower);
-        var gpuTemp = Resolve(data, null, KeySensor.GpuTemperature);
-        var gpuPower = Resolve(data, null, KeySensor.GpuPower);
-        var gpuHotSpot = Resolve(data, null, KeySensor.GpuHotSpot);
-        var cpuLoad = Resolve(data, null, KeySensor.CpuLoad);
-        var gpuLoad = Resolve(data, null, KeySensor.GpuLoad);
+        var cpuTemp = data.Resolve(cli.Get("temp"), KeySensor.CpuTemperature);
+        var cpuPower = data.Resolve(cli.Get("power"), KeySensor.CpuPower);
+        var gpuTemp = data.Resolve(null, KeySensor.GpuTemperature);
+        var gpuPower = data.Resolve(null, KeySensor.GpuPower);
+        var gpuHotSpot = data.Resolve(null, KeySensor.GpuHotSpot);
+        var cpuLoad = data.Resolve(null, KeySensor.CpuLoad);
+        var gpuLoad = data.Resolve(null, KeySensor.GpuLoad);
+        var cpuClock = data.Resolve(null, KeySensor.CpuClock);
 
-        AppendStats(sb, data, cpuTemp, cpuPower, cpuLoad, gpuTemp, gpuHotSpot, gpuPower, gpuLoad);
+        AppendStats(sb, data, cpuTemp, cpuPower, cpuLoad, cpuClock, gpuTemp, gpuHotSpot, gpuPower, gpuLoad);
         AppendTarget(sb, data, cpuTemp, target);
         AppendSteps(sb, "CPU", data, cpuPower, cpuTemp, new StepDetectionOptions { MinPowerJump = cli.GetDouble("min-jump", 30) });
         AppendSteps(sb, "GPU", data, gpuPower, gpuTemp, new StepDetectionOptions { MinPowerJump = cli.GetDouble("gpu-min-jump", 50) });
@@ -94,18 +61,7 @@ internal static class AnalyzeCommand
         return sb.ToString();
     }
 
-    private static int Resolve(Capture data, string? overrideText, KeySensor key)
-    {
-        if (!string.IsNullOrWhiteSpace(overrideText))
-        {
-            return Enumerable.Range(0, data.Sensors.Count).FirstOrDefault(
-                i => $"{data.Sensors[i].Id}|{data.Sensors[i].Name}".Contains(overrideText, StringComparison.OrdinalIgnoreCase), -1);
-        }
-
-        return KeySensorResolver.Find(data.Sensors, key);
-    }
-
-    private static void AppendStats(StringBuilder sb, Capture data, params int[] keyColumns)
+    private static void AppendStats(StringBuilder sb, CaptureFile data, params int[] keyColumns)
     {
         sb.AppendLine("## Statistiques");
         sb.AppendLine();
@@ -130,7 +86,7 @@ internal static class AnalyzeCommand
         sb.AppendLine();
     }
 
-    private static void AppendTarget(StringBuilder sb, Capture data, int cpuTemp, double target)
+    private static void AppendTarget(StringBuilder sb, CaptureFile data, int cpuTemp, double target)
     {
         sb.AppendLine(CultureInfo.InvariantCulture, $"## Cible CPU {F(target, "0")} °C");
         sb.AppendLine();
@@ -167,7 +123,7 @@ internal static class AnalyzeCommand
         sb.AppendLine();
     }
 
-    private static void AppendSteps(StringBuilder sb, string label, Capture data, int power, int temp, StepDetectionOptions options)
+    private static void AppendSteps(StringBuilder sb, string label, CaptureFile data, int power, int temp, StepDetectionOptions options)
     {
         sb.AppendLine(CultureInfo.InvariantCulture, $"## Réponse thermique {label} (échelons de puissance ≥ {F(options.MinPowerJump, "0")} W)");
         sb.AppendLine();
@@ -201,7 +157,7 @@ internal static class AnalyzeCommand
         sb.AppendLine();
     }
 
-    private static void AppendFps(StringBuilder sb, Capture data)
+    private static void AppendFps(StringBuilder sb, CaptureFile data)
     {
         var fps = SeriesStats.Compute(data.Fps);
         if (fps is null)

@@ -24,10 +24,13 @@ internal static class RecordCommand
         var path = Path.Combine(outputDir, $"{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}-{label}.csv");
 
         using var monitor = LhmMonitor.Open();
-        var columns = Enumerable.Range(0, monitor.Sensors.Count)
-            .Where(i => RecordedKinds.Contains(monitor.Sensors[i].Kind))
-            .ToArray();
         var keys = ResolveKeys(monitor.Sensors);
+
+        // Parmi les fréquences, seule la fréquence CPU effective moyenne est utile (bridage thermique).
+        var cpuClock = keys.GetValueOrDefault(KeySensor.CpuClock, -1);
+        var columns = Enumerable.Range(0, monitor.Sensors.Count)
+            .Where(i => RecordedKinds.Contains(monitor.Sensors[i].Kind) || i == cpuClock)
+            .ToArray();
 
         using var fps = StartFps(cli);
 
@@ -149,7 +152,7 @@ internal static class RecordCommand
         string V(KeySensor key, string unit) =>
             keys.TryGetValue(key, out var i) && values[i] is { } v ? $"{v.ToString("0", CultureInfo.InvariantCulture)}{unit}" : "—";
 
-        var line = $"{elapsed:hh\\:mm\\:ss}  CPU {V(KeySensor.CpuTemperature, "°C")} {V(KeySensor.CpuPower, "W")} {V(KeySensor.CpuLoad, "%")}"
+        var line = $"{elapsed:hh\\:mm\\:ss}  CPU {V(KeySensor.CpuTemperature, "°C")} {V(KeySensor.CpuPower, "W")} {V(KeySensor.CpuLoad, "%")} {V(KeySensor.CpuClock, "MHz")}"
                    + $"  |  GPU {V(KeySensor.GpuTemperature, "°C")} {V(KeySensor.GpuPower, "W")} {V(KeySensor.GpuLoad, "%")}"
                    + (fps is { } f ? $"  |  {f.Fps:0} FPS ({f.App})" : "");
 
