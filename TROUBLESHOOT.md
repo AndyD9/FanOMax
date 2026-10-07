@@ -1,0 +1,149 @@
+# FanOMax : dépannage
+
+> Guide de diagnostic et journal des incidents.
+> **Règle :** chaque bug rencontré est ajouté au §5 (journal), et à la §4 s'il peut se reproduire.
+
+---
+
+## 1. 🚨 Urgence : ventilateurs bloqués ou PC qui chauffe
+
+À faire dans l'ordre :
+
+1. **Arrêter le service proprement**, ce qui rend la main au BIOS :
+   ```powershell
+   Stop-Service FanOMax
+   ```
+2. Si le service ne répond pas ou si les ventilateurs restent figés : **redémarrer le PC**. Le redémarrage remet la puce Nuvoton sous le contrôle du BIOS.
+3. En dépannage temporaire, relancer **FanControl** (Rem0o), qui reste installé.
+4. Récupérer les journaux (§2) **avant** de relancer FanOMax.
+
+> Pourquoi un redémarrage ? Si le processus est tué brutalement (plantage dur, `taskkill /f`), LHM n'a pas le temps d'appeler `SetDefault()`. Les registres PWM gardent alors leur dernière valeur jusqu'au reset de la carte.
+
+---
+
+## 2. Emplacements utiles
+
+| Quoi | Où |
+|---|---|
+| Config | `C:\ProgramData\FanOMax\config.json` |
+| Journaux du service | `C:\ProgramData\FanOMax\logs\` |
+| Historique (SQLite) | `C:\ProgramData\FanOMax\history.db` |
+| Journaux de l'interface | `%LOCALAPPDATA%\FanOMax\logs\` |
+| Driver PawnIO | `C:\Program Files\PawnIO\` |
+| FanControl (référence) | `C:\Program Files (x86)\FanControl\` |
+
+---
+
+## 3. Commandes de diagnostic
+
+```powershell
+# État du service
+Get-Service FanOMax
+
+# Dernières lignes du journal du service
+Get-Content "C:\ProgramData\FanOMax\logs\*.log" -Tail 100
+
+# Erreurs et avertissements uniquement
+Select-String -Path "C:\ProgramData\FanOMax\logs\*.log" -Pattern "\[(ERR|FTL|WRN)\]" | Select-Object -Last 50
+
+# FanControl tourne-t-il ? (conflit d'écriture PWM)
+Get-Process FanControl -ErrorAction SilentlyContinue
+
+# Le driver PawnIO est-il présent ?
+Test-Path "C:\Program Files\PawnIO\PawnIOLib.dll"
+
+# Session admin ?
+([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+# Inventaire matériel (sonde en lecture seule, à lancer en admin)
+dotnet run --project src\FanOMax.Probe -- inventory
+```
+
+---
+
+## 4. Problèmes connus et anticipés
+
+Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrigé dans le code
+
+### 4.1 Aucun capteur de carte mère / aucun contrôle de ventilateur — 🔮
+- **Symptôme :** seuls les capteurs CPU et GPU apparaissent, pas de Nuvoton ni de contrôle PWM.
+- **Causes probables :**
+  1. Processus lancé sans droits admin.
+  2. Driver PawnIO absent ou bloqué.
+  3. Version de LHM trop ancienne (avant PawnIO, elle utilisait WinRing0).
+- **Correctifs :** lancer en admin ; vérifier §3 (PawnIO) ; aligner la version de LibreHardwareMonitorLib.
+
+### 4.2 Les ventilateurs « se battent » (vitesse qui saute) — 🔮
+- **Cause :** FanControl et FanOMax écrivent tous les deux les PWM.
+- **Correctif :** fermer FanControl et désactiver son démarrage automatique. FanOMax doit refuser le mode écriture quand FanControl tourne (règle de sécurité n° 3) : si ce n'est pas le cas, c'est un bug.
+
+### 4.3 Windows Defender signale un driver vulnérable — 🔮
+- **Cause :** une dépendance embarque encore **WinRing0** (CVE-2020-14979).
+- **Correctif :** n'utiliser qu'une version de LHM basée sur PawnIO ; vérifier qu'aucun `WinRing0*.sys` n'est présent dans les fichiers produits par le build.
+
+### 4.4 Température CPU qui saute de ±10 °C en une seconde — 🔮 (normal sur 5800X)
+- **Cause :** comportement normal des Ryzen (boost d'un seul cœur, capteur Tctl très réactif).
+- **Correctif :** ce n'est pas un bug. Le filtre EMA doit absorber ces sauts. Si les ventilateurs réagissent quand même : augmenter la constante du filtre ou réduire `Kd`.
+
+### 4.5 Le PID oscille (ventilateurs qui montent et descendent en boucle) — 🔮
+- **Diagnostic :** dans l'historique, superposer consigne, mesure et % PWM. Une oscillation régulière signale un gain trop fort.
+- **Réglage, dans cet ordre :**
+  1. Baisser `Kp` de 30 %.
+  2. Si dépassement lent : baisser `Ki`.
+  3. Si réaction nerveuse aux pics : baisser `Kd` ou filtrer davantage.
+  4. Vérifier que le limiteur de pente et l'hystérésis sont actifs.
+- Toujours valider un nouveau réglage sur le **simulateur** avant de l'appliquer au matériel.
+
+### 4.6 Le PID n'atteint jamais la cible / reste saturé — 🔮
+- **Cause :** cible irréaliste pour le refroidissement (par exemple 55 °C sous Cinebench), ou intégrale emballée.
+- **Correctif :** relever la cible ; vérifier que l'anti-windup gèle bien l'intégrale à la saturation (test unitaire dédié).
+
+### 4.7 Un ventilateur s'arrête à bas régime — 🔮
+- **Cause :** PWM sous le seuil de démarrage ou de maintien du ventilateur.
+- **Correctif :** régler `minPercent` (maintien) et `startPercent` (démarrage), mesurés avec la sonde.
+
+### 4.8 Ventilateurs du GPU (RX 6750 XT) non pilotables — 🔮 (risque connu)
+- **Cause :** le contrôle des GPU AMD via LHM (ADL) est partiel sur RDNA2.
+- **Pistes :** passer par ADLX (FanControl fournit `ADLXWrapper.dll`), ou laisser le GPU en mode automatique du driver AMD.
+
+### 4.9 L'interface n'arrive pas à se connecter au service — 🔮
+- **Symptôme :** « Service indisponible » ou accès refusé sur le named pipe.
+- **Causes :** service arrêté ; ACL du pipe trop restrictive ; différence de version entre les contrats de l'interface et du service.
+- **Correctifs :** `Get-Service FanOMax` ; vérifier l'ACL (administrateurs + utilisateur interactif) ; recompiler les deux avec la même version de `FanOMax.Contracts`.
+
+### 4.10 Le failsafe se déclenche sans raison apparente — 🔮
+- **Diagnostic :** le journal doit toujours indiquer **la raison** (capteur perdu, valeur aberrante, watchdog, exception). Si la raison manque, c'est un bug de journalisation à corriger en priorité.
+- **Cause fréquente :** capteur « figé » mal détecté (valeur stable au repos considérée comme figée). Ajuster le seuil de détection.
+
+### 4.11 La base SQLite grossit trop / « database is locked » — 🔮
+- **Causes :** agrégation ou purge non exécutée ; écriture concurrente.
+- **Correctifs :** vérifier la tâche d'agrégation ; mode WAL activé ; une seule connexion en écriture.
+
+### 4.12 FPS absents ou à 0 — 🔮
+- **Causes probables :**
+  1. PresentMon introuvable ou bloqué (antivirus).
+  2. Session ETW orpheline après un plantage (« session already exists »).
+  3. Mauvais processus suivi (launcher au lieu du jeu).
+- **Correctifs :** vérifier le chemin de PresentMon ; relancer avec `--stop_existing_session` ; vérifier dans le journal quel processus est suivi.
+
+### 4.13 Le mini-widget n'apparaît pas par-dessus le jeu — 🔮 (limitation)
+- **Cause :** le jeu est en **plein écran exclusif** : aucune fenêtre Windows ne peut s'afficher par-dessus.
+- **Correctif :** passer le jeu en **plein écran fenêtré / sans bordure**, ou utiliser l'overlay d'AMD Adrenalin.
+
+---
+
+## 5. Journal des incidents
+
+> Ajouter les incidents les plus récents en haut. Copier le modèle ci-dessous.
+
+```markdown
+### AAAA-MM-JJ : titre court
+- **Symptôme :** ce qui a été observé
+- **Contexte :** phase / version / mode (lecture seule, fantôme, écriture) / charge en cours
+- **Journaux :** extrait pertinent
+- **Cause racine :** pourquoi c'est arrivé
+- **Correctif :** ce qui a été changé (fichier, commit)
+- **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
+```
+
+_(aucun incident pour l'instant)_

@@ -1,0 +1,15 @@
+# Normalise les fins de ligne (LF dans le repo, conversion automatique à l'extraction).
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.slnx    text
+*.props   text
+*.axaml   text
+*.json    text
+*.md      text
+*.ps1     text eol=crlf
+
+*.ico     binary
+*.png     binary
+*.dll     binary

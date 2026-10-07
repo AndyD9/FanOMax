@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Logique pure (PID, prédiction, courbes) : aucune dépendance matériel ni Windows, entièrement testable. -->
+
+</Project>

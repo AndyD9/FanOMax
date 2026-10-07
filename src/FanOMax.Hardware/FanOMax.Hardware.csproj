@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Accès matériel : abstraction IHardwareBackend + implémentation LibreHardwareMonitor. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibreHardwareMonitorLib" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FanOMax.Core\FanOMax.Core.csproj" />
+  </ItemGroup>
+
+</Project>

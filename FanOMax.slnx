@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FanOMax.App/FanOMax.App.csproj" />
+    <Project Path="src/FanOMax.Contracts/FanOMax.Contracts.csproj" />
+    <Project Path="src/FanOMax.Core/FanOMax.Core.csproj" />
+    <Project Path="src/FanOMax.Hardware/FanOMax.Hardware.csproj" />
+    <Project Path="src/FanOMax.Probe/FanOMax.Probe.csproj" />
+    <Project Path="src/FanOMax.Service/FanOMax.Service.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FanOMax.Core.Tests/FanOMax.Core.Tests.csproj" />
+  </Folder>
+</Solution>
