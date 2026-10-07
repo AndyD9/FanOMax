@@ -1,6 +1,6 @@
 # Phase 3 : service Windows (mode fantôme)
 
-> Code : `src/FanOMax.Service`, `src/FanOMax.Hardware`. Tests : `tests/FanOMax.Service.Tests` (25 tests, faux matériel).
+> Code : `src/FanOMax.Service`, `src/FanOMax.Hardware`. Tests : `tests/FanOMax.Service.Tests` (30 tests, faux matériel).
 
 ## 1. Ce que fait le service
 
@@ -65,7 +65,21 @@ Générée au premier démarrage à partir du matériel détecté, et commentée
 
 Chaque enregistrement du fichier est appliqué sans redémarrer le service.
 
-## 6. Mode fantôme : déroulé
+## 6. Mode fantôme : température estimée
+
+En mode fantôme, la température mesurée résulte de la ventilation de **FanControl**, pas de celle de FanOMax : la boucle est ouverte. Si le régulateur recevait la mesure brute, son PI s'accumulerait jusqu'à la butée dès que la température dépasse la cible (incident du 2026-10-07, TROUBLESHOOT.md §5).
+
+Le service transmet donc au régulateur une **température estimée** :
+
+```
+T_estimée = T_mesurée + c × (ventilation appliquée − décision de FanOMax)    (écart filtré sur 30 s)
+```
+
+avec `c` l'effet des ventilateurs du modèle (0,153 °C/% CPU, 0,103 °C/% GPU). Elle est journalisée dans la colonne `regulator_temperature`. En mode Active, le régulateur reçoit la mesure réelle.
+
+> C'est une **estimation** : elle vaut ce que vaut `c`, encore incertain pour le CPU. Le vrai juge reste le passage en mode Active (phase 7).
+
+## 7. Mode fantôme : déroulé
 
 1. Installer le service (FanControl continue de piloter normalement).
 2. Utiliser le PC normalement **plusieurs jours** : bureau, jeux, charges lourdes.

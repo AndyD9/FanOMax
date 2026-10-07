@@ -10,7 +10,7 @@ namespace FanOMax.Service.Engine;
 public sealed class ShadowLog : IDisposable
 {
     public const string Header =
-        "timestamp,group,mode,writing,target,temperature,filtered_temperature,power,filtered_power,feedforward,correction,decision_percent,status,applied_percent,written,reason";
+        "timestamp,group,mode,writing,target,temperature,regulator_temperature,filtered_temperature,power,filtered_power,feedforward,correction,decision_percent,status,applied_percent,written,reason";
 
     private readonly string _directory;
     private readonly int _retentionDays;
@@ -40,6 +40,7 @@ public sealed class ShadowLog : IDisposable
                 tick.WritingAllowed ? "1" : "0",
                 N(g.Target),
                 N(g.Temperature),
+                N(g.RegulatorTemperature),
                 N(d.FilteredTemperature),
                 N(g.Power),
                 N(d.FilteredPower),
@@ -76,7 +77,7 @@ public sealed class ShadowLog : IDisposable
 
         _writer?.Dispose();
         _day = day;
-        var path = Path.Combine(_directory, $"shadow-{day.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv");
+        var path = PathFor(day);
         var isNew = !File.Exists(path);
 
         // Partage en lecture : la sonde (shadow-report) peut lire le fichier du jour pendant l'écriture.
@@ -90,12 +91,37 @@ public sealed class ShadowLog : IDisposable
         Purge(day);
     }
 
+    /// <summary>
+    /// Fichier du jour. Si un fichier du jour existe avec un autre format (mise à jour du service),
+    /// on passe à <c>shadow-AAAAMMJJ-2.csv</c>, <c>-3</c>… plutôt que de mélanger deux formats.
+    /// </summary>
+    private string PathFor(DateOnly day)
+    {
+        var stamp = day.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var path = Path.Combine(_directory, $"shadow-{stamp}.csv");
+        for (var n = 2; File.Exists(path) && FirstLine(path) != Header; n++)
+        {
+            path = Path.Combine(_directory, $"shadow-{stamp}-{n}.csv");
+        }
+
+        return path;
+    }
+
+    private static string? FirstLine(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        return reader.ReadLine();
+    }
+
     private void Purge(DateOnly today)
     {
         var oldest = today.AddDays(-_retentionDays);
         foreach (var file in Directory.EnumerateFiles(_directory, "shadow-*.csv"))
         {
-            var stamp = Path.GetFileNameWithoutExtension(file)["shadow-".Length..];
+            // shadow-AAAAMMJJ.csv ou shadow-AAAAMMJJ-n.csv : la date est toujours sur les 8 premiers caractères.
+            var name = Path.GetFileNameWithoutExtension(file)["shadow-".Length..];
+            var stamp = name.Length >= 8 ? name[..8] : name;
             if (DateOnly.TryParseExact(stamp, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && day < oldest)
             {
                 File.Delete(file);

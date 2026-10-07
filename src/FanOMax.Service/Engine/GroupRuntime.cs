@@ -45,6 +45,15 @@ internal sealed class GroupRuntime
     /// <summary>Dernier statut journalisé, pour ne tracer que les changements.</summary>
     public string? LastStatus { get; set; }
 
+    /// <summary>Dernière consigne du régulateur, pour estimer la température en mode fantôme.</summary>
+    public double? LastDecisionPercent { get; set; }
+
+    /// <summary>
+    /// Écart de température estimé entre la ventilation de FanOMax et celle réellement appliquée, filtré sur 30 s
+    /// (inertie du ventirad). Utilisé uniquement quand FanOMax ne pilote pas.
+    /// </summary>
+    public Ema ShadowOffset { get; } = new(30);
+
     /// <summary>Résout le groupe sur le matériel. Renvoie null et une erreur si un capteur ou une sortie est introuvable.</summary>
     public static GroupRuntime? Resolve(GroupOptions options, FanProfile profile, IHardwareBackend backend, out string? error)
     {

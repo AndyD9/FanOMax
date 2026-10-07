@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using FanOMax.Core.Control;
 using FanOMax.Hardware;
 using FanOMax.Service.Configuration;
@@ -29,6 +30,7 @@ public sealed partial class RegulationEngine : IDisposable
     private ImmutableHashSet<string> _written = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
     private List<GroupRuntime> _groups = [];
     private FanOMaxOptions _options = new();
+    private string? _serializedOptions;
     private double _sinceFanControlCheck = double.MaxValue;
     private bool _fanControlRunning;
     private bool _disposed;
@@ -67,6 +69,15 @@ public sealed partial class RegulationEngine : IDisposable
     public bool Reconfigure(FanOMaxOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+
+        // Rechargement sans changement réel (l'enregistrement d'un fichier peut déclencher plusieurs notifications) :
+        // on garde l'état des régulateurs (filtres, intégrale) au lieu de les remettre à zéro.
+        var serialized = JsonSerializer.Serialize(options);
+        if (_groups.Count > 0 && serialized == _serializedOptions)
+        {
+            return true;
+        }
+
         var errors = FanOMaxOptionsValidator.Validate(options);
         if (errors.Count > 0)
         {
@@ -104,6 +115,7 @@ public sealed partial class RegulationEngine : IDisposable
 
         _groups = groups;
         _options = options;
+        _serializedOptions = serialized;
         ConfigurationErrors = errors;
         if (_logger.IsEnabled(LogLevel.Information))
         {
@@ -180,7 +192,12 @@ public sealed partial class RegulationEngine : IDisposable
     {
         var temperature = Read(values, group.TemperatureIndex);
         var power = Read(values, group.PowerIndex);
-        var decision = group.Regulator.Update(dt, temperature, power);
+        var appliedValues = group.ControlSensorIndices.Select(i => Read(values, i)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        double? applied = appliedValues.Count > 0 ? appliedValues.Average() : null;
+
+        var regulatorTemperature = EstimateTemperature(group, temperature, applied, dt, writing);
+        var decision = group.Regulator.Update(dt, regulatorTemperature, power);
+        group.LastDecisionPercent = decision.Percent;
 
         var percent = decision.Percent;
         var status = decision.Mode.ToString();
@@ -239,17 +256,38 @@ public sealed partial class RegulationEngine : IDisposable
             group.LastStatus = status;
         }
 
-        var applied = group.ControlSensorIndices.Select(i => Read(values, i)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
         return new GroupTick(
             group.Name,
             group.Settings.TargetTemperature,
             temperature,
+            regulatorTemperature,
             power,
             decision,
             percent,
             status,
-            applied.Count > 0 ? applied.Average() : null,
+            applied,
             written);
+    }
+
+    /// <summary>
+    /// Température transmise au régulateur. Quand FanOMax pilote, c'est la mesure.
+    /// <para>
+    /// Quand il ne pilote pas (mode fantôme, FanControl présent), la température mesurée résulte de la ventilation
+    /// de FanControl, pas de celle de FanOMax : sans correction, la boucle est ouverte et le PI s'accumule jusqu'à la butée.
+    /// On estime donc la température qu'aurait produite la ventilation de FanOMax, via l'effet des ventilateurs du modèle,
+    /// avec un retard qui imite l'inertie du ventirad.
+    /// </para>
+    /// </summary>
+    private static double? EstimateTemperature(GroupRuntime group, double? measured, double? applied, double dt, bool writing)
+    {
+        if (writing || measured is not { } t || applied is not { } a || group.LastDecisionPercent is not { } decided)
+        {
+            group.ShadowOffset.Reset();
+            return measured;
+        }
+
+        var offset = group.Settings.Model.FanGain * (a - decided);
+        return t + group.ShadowOffset.Update(offset, dt);
     }
 
     private void UpdateFanControlState(double dt)

@@ -16,8 +16,8 @@ public sealed class ShadowLogTests : IDisposable
         WritingAllowed: false,
         FanControlRunning: true,
         [
-            new GroupTick("CPU", 67, 69.5, 88, new RegulatorDecision(63.4, RegulatorMode.Normal, 69.1, 87.2, 60, 3.4, null), 63.4, "Normal", 48.6, false),
-            new GroupTick("GPU", 82, 61, 126, new RegulatorDecision(30, RegulatorMode.SensorHolding, 60.8, 125, 30, 0, "Puissance : valeur absente"), 30, "SensorHolding", 58, false),
+            new GroupTick("CPU", 67, 69.5, 67.3, 88, new RegulatorDecision(63.4, RegulatorMode.Normal, 69.1, 87.2, 60, 3.4, null), 63.4, "Normal", 48.6, false),
+            new GroupTick("GPU", 82, 61, 64, 126, new RegulatorDecision(30, RegulatorMode.SensorHolding, 60.8, 125, 30, 0, "Puissance : valeur absente"), 30, "SensorHolding", 58, false),
         ]);
 
     private string[] Lines(string day) =>
@@ -35,7 +35,7 @@ public sealed class ShadowLogTests : IDisposable
         var lines = Lines("20261007");
         Assert.Equal(ShadowLog.Header, lines[0]);
         Assert.Equal(5, lines.Length);
-        Assert.Equal("2026-10-07T14:00:00.000,\"CPU\",Shadow,0,67,69.5,69.1,88,87.2,60,3.4,63.4,Normal,48.6,0,", lines[1]);
+        Assert.Equal("2026-10-07T14:00:00.000,\"CPU\",Shadow,0,67,69.5,67.3,69.1,88,87.2,60,3.4,63.4,Normal,48.6,0,", lines[1]);
         Assert.EndsWith(",SensorHolding,58,0,\"Puissance : valeur absente\"", lines[2], StringComparison.Ordinal);
     }
 
@@ -53,6 +53,38 @@ public sealed class ShadowLogTests : IDisposable
 
         Assert.Equal(3, Lines("20261007").Length);
         Assert.Equal(3, Lines("20261008").Length);
+        Assert.False(File.Exists(old));
+    }
+
+    [Fact]
+    public void Write_StartsANewFile_WhenTheFormatOfTheDayFileChanged()
+    {
+        // Fichier du jour écrit par une version précédente du service (autres colonnes).
+        var previous = Path.Combine(_directory.FullName, "shadow-20261007.csv");
+        File.WriteAllLines(previous, ["timestamp,group,ancien_format", "2026-10-07T09:00:00.000,\"CPU\",1"]);
+
+        using (var log = new ShadowLog(_directory.FullName, 7))
+        {
+            log.Write(Tick(new DateTime(2026, 10, 7, 14, 0, 0)));
+        }
+
+        Assert.Equal(2, File.ReadAllLines(previous).Length);
+        var lines = Lines("20261007-2");
+        Assert.Equal(ShadowLog.Header, lines[0]);
+        Assert.Equal(3, lines.Length);
+    }
+
+    [Fact]
+    public void Purge_AlsoRemovesOldSuffixedFiles()
+    {
+        var old = Path.Combine(_directory.FullName, "shadow-20260901-2.csv");
+        File.WriteAllText(old, ShadowLog.Header);
+
+        using (var log = new ShadowLog(_directory.FullName, retentionDays: 7))
+        {
+            log.Write(Tick(new DateTime(2026, 10, 7, 12, 0, 0)));
+        }
+
         Assert.False(File.Exists(old));
     }
 

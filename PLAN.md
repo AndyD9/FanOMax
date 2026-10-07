@@ -236,7 +236,8 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] Journaux Serilog (14 jours) avec résumé par minute
 - [x] Scripts d'installation / désinstallation, récupération automatique (2 redémarrages)
 - [x] Sonde : `shadow-report`, bilan FanOMax contre FanControl
-- [x] 25 tests du service (faux matériel) : 90 tests au total
+- [x] 30 tests du service (faux matériel) : 95 tests au total
+- [x] Correctif après le premier démarrage : température estimée en mode fantôme (le PI s'emballait en boucle ouverte)
 - [ ] ~~Collecte des FPS par le service~~ : déplacée en phase 6 (utile seulement à l'affichage)
 - [ ] **Installation par l'utilisateur et plusieurs jours en mode fantôme**
 - **Livrable :** service qui tourne en mode fantôme pendant plusieurs jours sans erreur
@@ -308,6 +309,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Journal des décisions en CSV quotidien (7 jours) en attendant SQLite (phase 5) | Simple, lisible, suffisant pour le bilan du mode fantôme |
 | 2026-10-07 | Groupe CPU = Fan #1, #2, #7 (ventilateurs qui tournent), pilotés au même % | Comme FanControl aujourd'hui ; le hub et le ventirad seront distingués en phase 7 si besoin |
 | 2026-10-07 | Arrêt sur erreurs matérielles avec code de sortie 1 | Windows relance le service (2 tentatives), le BIOS garde la main entre-temps |
+| 2026-10-07 | Mode fantôme : régulateur alimenté par une **température estimée** (mesure + c × écart de ventilation, filtré 30 s) | Sans cela, boucle ouverte et PI emballé vers 90 % (incident du premier démarrage, TROUBLESHOOT.md §5) |
 
 ---
 

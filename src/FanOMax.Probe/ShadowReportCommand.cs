@@ -11,7 +11,8 @@ namespace FanOMax.Probe;
 /// </summary>
 internal static class ShadowReportCommand
 {
-    private sealed record Row(DateTime Time, string Group, double? Target, double? Temperature, double? Decision, double? Applied, string Status, string Reason);
+    /// <param name="RegulatorTemperature">Température estimée par le service avec la ventilation de FanOMax (absente des journaux antérieurs).</param>
+    private sealed record Row(DateTime Time, string Group, double? Target, double? Temperature, double? RegulatorTemperature, double? Decision, double? Applied, string Status, string Reason);
 
     public static int Run(CommandLine cli)
     {
@@ -23,7 +24,13 @@ internal static class ShadowReportCommand
             return 1;
         }
 
-        var files = Directory.GetFiles(directory, "shadow-*.csv").Order(StringComparer.Ordinal).TakeLast(days).ToList();
+        // shadow-AAAAMMJJ.csv (et -2, -3… après une mise à jour du service) : sélection par date.
+        var files = Directory.GetFiles(directory, "shadow-*.csv")
+            .GroupBy(f => Path.GetFileName(f).Substring("shadow-".Length, 8), StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .TakeLast(days)
+            .SelectMany(g => g.Order(StringComparer.Ordinal))
+            .ToList();
         var rows = files.SelectMany(Read).ToList();
         if (rows.Count == 0)
         {
@@ -47,7 +54,7 @@ internal static class ShadowReportCommand
         using var reader = new StreamReader(stream);
         var header = Csv.SplitLine(reader.ReadLine() ?? "");
         int Col(string name) => header.IndexOf(name);
-        int time = Col("timestamp"), group = Col("group"), target = Col("target"), temp = Col("temperature"),
+        int time = Col("timestamp"), group = Col("group"), target = Col("target"), temp = Col("temperature"), regulatorTemp = Col("regulator_temperature"),
             decision = Col("decision_percent"), applied = Col("applied_percent"), status = Col("status"), reason = Col("reason");
 
         var rows = new List<Row>();
@@ -59,7 +66,16 @@ internal static class ShadowReportCommand
                 continue;
             }
 
-            rows.Add(new Row(t, f[group], Csv.ParseNumber(f[target]), Csv.ParseNumber(f[temp]), Csv.ParseNumber(f[decision]), Csv.ParseNumber(f[applied]), f[status], f[reason]));
+            rows.Add(new Row(
+                t,
+                f[group],
+                Csv.ParseNumber(f[target]),
+                Csv.ParseNumber(f[temp]),
+                regulatorTemp >= 0 ? Csv.ParseNumber(f[regulatorTemp]) : null,
+                Csv.ParseNumber(f[decision]),
+                Csv.ParseNumber(f[applied]),
+                f[status],
+                f[reason]));
         }
 
         return rows;
@@ -96,7 +112,8 @@ internal static class ShadowReportCommand
         sb.AppendLine();
 
         var measured = rows.Select(r => r.Temperature).ToList();
-        var estimated = rows.Select(r => r.Temperature + (model.FanGain * (r.Applied - r.Decision))).ToList();
+        // Estimation du service quand elle existe (avec l'inertie du ventirad), sinon correction statique.
+        var estimated = rows.Select(r => r.RegulatorTemperature ?? (r.Temperature + (model.FanGain * (r.Applied - r.Decision)))).ToList();
 
         sb.AppendLine("| | Ventilation moyenne | Ventilation P95 | Course (%/min) | Temp. moyenne | Temp. P95 | Temps > cible |");
         sb.AppendLine("|---|---|---|---|---|---|---|");

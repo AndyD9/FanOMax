@@ -218,4 +218,11 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
 ```
 
-_(aucun incident pour l'instant)_
+### 2026-10-07 : en mode fantôme, le régulateur CPU s'emballait vers 90 %
+- **Symptôme :** dès le premier démarrage du service, en jeu, FanOMax décidait 87–90 % pour le CPU alors que FanControl appliquait 53 %, avec une correction PI qui ne cessait de croître (+22 % en une minute).
+- **Contexte :** phase 3, mode fantôme, profil Normal (cible 67 °C), CPU à 70–74 °C pour 90 W sous les courbes de FanControl.
+- **Journaux :** `shadow-20261007.csv` : `filtered_temperature` 70,5–71 °C, `feedforward` 66 %, `correction` +21,6 → +23,2 %, `decision_percent` 87–90 %, `applied_percent` 53 %.
+- **Cause racine :** en mode fantôme la boucle est **ouverte** : la température mesurée résulte de la ventilation de FanControl et ne réagit jamais aux décisions de FanOMax. Le PI voyait une erreur permanente (70 > 67 °C) et intégrait jusqu'à la butée. Le bilan du mode fantôme aurait fortement surestimé la ventilation de FanOMax. Défaut de conception, non couvert par les tests (le faux matériel n'avait pas de cas « température durablement au-dessus de la cible »).
+- **Correctif :** quand FanOMax ne pilote pas, le régulateur reçoit une **température estimée** : mesure + effet des ventilateurs du modèle × (ventilation appliquée − décision de FanOMax), filtrée sur 30 s. Nouvelle colonne `regulator_temperature` dans le journal ; `shadow-report` l'utilise. Au passage : un rechargement de configuration identique ne remet plus les régulateurs à zéro, et un changement de format du journal ouvre un nouveau fichier (`shadow-AAAAMMJJ-2.csv`).
+- **Prévention :** tests `Shadow_DoesNotWindUp_AndRegulatesOnTheEstimatedTemperature`, `Reconfigure_WithIdenticalOptions_KeepsTheRunningRegulators`, `Write_StartsANewFile_WhenTheFormatOfTheDayFileChanged`.
+- **Limite connue :** l'estimation dépend de l'effet des ventilateurs du modèle (incertain : 0,085 à 0,153 °C/% pour le CPU, voir docs/phase2-regulation.md §3). Le bilan du mode fantôme est donc une estimation, pas une mesure.

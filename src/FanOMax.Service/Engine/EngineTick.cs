@@ -4,6 +4,11 @@ using FanOMax.Service.Configuration;
 namespace FanOMax.Service.Engine;
 
 /// <summary>Résultat d'un cycle pour un groupe.</summary>
+/// <param name="Temperature">Température mesurée.</param>
+/// <param name="RegulatorTemperature">
+/// Température transmise au régulateur : la mesure quand FanOMax pilote ; en mode fantôme, la température estimée
+/// avec la ventilation de FanOMax (voir <c>RegulationEngine.EstimateTemperature</c>).
+/// </param>
 /// <param name="Status">Mode du régulateur, ou « Critical » (température critique) ou « Bios » (rendu au BIOS).</param>
 /// <param name="Percent">Consigne retenue (après la règle de température critique).</param>
 /// <param name="AppliedPercent">% réellement appliqué aux sorties PWM (lu sur le matériel : FanControl, BIOS ou FanOMax).</param>
@@ -12,6 +17,7 @@ public sealed record GroupTick(
     string Name,
     double Target,
     double? Temperature,
+    double? RegulatorTemperature,
     double? Power,
     RegulatorDecision Decision,
     double Percent,

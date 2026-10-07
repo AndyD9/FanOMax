@@ -48,6 +48,48 @@ public class RegulationEngineTests
     }
 
     [Fact]
+    public void Shadow_DoesNotWindUp_AndRegulatesOnTheEstimatedTemperature()
+    {
+        // Cas réel du premier démarrage : FanControl tient le CPU à 70 °C avec 48 % de ventilation,
+        // la cible Normal est 67 °C. La température mesurée ne réagit pas aux décisions de FanOMax (boucle ouverte).
+        var backend = new FakeBackend();
+        backend.Set(CpuTemp, 70);
+        var engine = Engine(backend, Options(OperatingMode.Shadow));
+
+        var ticks = Run(engine, 900);
+        var cpu = ticks[^1].Groups[0];
+
+        // Sans correction, le PI s'accumulait jusqu'à la butée (≈ 90–100 %).
+        // Avec l'estimation 70 + 0,153 × (48 − décision) = 67 °C, l'équilibre est vers 67–68 %.
+        Assert.InRange(cpu.Percent, 62, 74);
+        Assert.InRange(cpu.RegulatorTemperature!.Value, 66, 68);
+        Assert.Equal(70, cpu.Temperature);
+    }
+
+    [Fact]
+    public void Active_RegulatesOnTheMeasuredTemperature()
+    {
+        var backend = new FakeBackend();
+        var engine = Engine(backend, Options(OperatingMode.Active));
+
+        var tick = engine.Tick(1);
+
+        Assert.Equal(tick.Groups[0].Temperature, tick.Groups[0].RegulatorTemperature);
+    }
+
+    [Fact]
+    public void Reconfigure_WithIdenticalOptions_KeepsTheRunningRegulators()
+    {
+        var backend = new FakeBackend();
+        var original = Options(OperatingMode.Shadow);
+        var engine = Engine(backend, original);
+
+        Assert.True(engine.Reconfigure(Options(OperatingMode.Shadow)));
+
+        Assert.Same(original, engine.Options);
+    }
+
+    [Fact]
     public void Shadow_ReportsWhatIsActuallyApplied()
     {
         var backend = new FakeBackend();
