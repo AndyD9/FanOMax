@@ -1,0 +1,34 @@
+{
+  // FanOMax : ÉTAPE 3 : FanOMax PILOTE le groupe CPU (ventirad + ventilateurs de boîtier), cible 69 °C.
+  // Identification du 2026-10-09 : Fan #1 = ventirad ; Fan #2 et Fan #7 = boîtier (dont le hub).
+  // Le GPU reste piloté par le pilote AMD. Retour arrière : etape-0-fantome.json.
+  "FanOMax": {
+    "Mode": "Active",
+    "Profile": "Normal",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        // Fan #1 (ventirad), Fan #2 et Fan #7 (boîtier)
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/6" ],
+        "TargetTemperature": 69,
+        "CriticalTemperature": 90
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        // Étape suivante : le pilote AMD garde la main sur le GPU pour l'instant.
+        "Enabled": false,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ]
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}

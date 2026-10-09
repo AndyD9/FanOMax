@@ -16,6 +16,8 @@ internal sealed class FakeBackend : IHardwareBackend
     public const string Fan1 = "/lpc/nct6796dr/0/control/0";
     public const string Fan2 = "/lpc/nct6796dr/0/control/1";
     public const string Fan3 = "/lpc/nct6796dr/0/control/2";
+    public const string Fan4 = "/lpc/nct6796dr/0/control/3";
+    public const string Fan5 = "/lpc/nct6796dr/0/control/4";
     public const string Fan7 = "/lpc/nct6796dr/0/control/6";
     public const string GpuFan = "/gpu-amd/0/control/0";
 
@@ -32,6 +34,8 @@ internal sealed class FakeBackend : IHardwareBackend
             new SensorDescriptor(Fan1, "Fan #1", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(Fan2, "Fan #2", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(Fan3, "Fan #3", "Nuvoton NCT6796D-R", SensorKind.Control),
+            new SensorDescriptor(Fan4, "Fan #4", "Nuvoton NCT6796D-R", SensorKind.Control),
+            new SensorDescriptor(Fan5, "Fan #5", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(Fan7, "Fan #7", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(GpuFan, "GPU Fan", "AMD Radeon RX 6750 XT", SensorKind.Control),
         ];
@@ -40,7 +44,7 @@ internal sealed class FakeBackend : IHardwareBackend
         Set(CpuPower, 88);
         Set(GpuHotSpot, 62);
         Set(GpuPower, 126);
-        foreach (var control in new[] { Fan1, Fan2, Fan3, Fan7 })
+        foreach (var control in new[] { Fan1, Fan2, Fan3, Fan4, Fan5, Fan7 })
         {
             Set(control, 48);
         }
@@ -78,7 +82,10 @@ internal sealed class FakeBackend : IHardwareBackend
     [
         Control(Fan1, "Fan #1", "Nuvoton NCT6796D-R", 1718),
         Control(Fan2, "Fan #2", "Nuvoton NCT6796D-R", 898),
+        // Canaux #3 à #5 : pilotables, mais sans régime remonté (comme sur la machine réelle).
         Control(Fan3, "Fan #3", "Nuvoton NCT6796D-R", 0),
+        Control(Fan4, "Fan #4", "Nuvoton NCT6796D-R", 0),
+        Control(Fan5, "Fan #5", "Nuvoton NCT6796D-R", 0),
         Control(Fan7, "Fan #7", "Nuvoton NCT6796D-R", 843),
         Control(GpuFan, "GPU Fan", "AMD Radeon RX 6750 XT", 2850),
     ];

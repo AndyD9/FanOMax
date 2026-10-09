@@ -52,16 +52,33 @@ Copy-Item docs\phase7\etape-0-fantome.json C:\ProgramData\FanOMax\config.json -F
 
 Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixed`.
 
+**Si un ventilateur n'a réagi à aucun des trois** (constaté le 2026-10-09) : il est sans doute branché sur un canal **sans régime remonté** (Fan #3, #4 ou #5 : pilotables, mais 0 RPM affiché). Même méthode avec `etape-1-identifier-fan3.json`, `fan4` et `fan5`, puis retour à `etape-0-fantome.json`. S'il ne réagit à aucun canal, il est alimenté directement (Molex/SATA, alimentation) et n'est pas pilotable par la carte mère.
+
 ➡️ **Me transmettre** : canal → ventilateur(s) observé(s), et les notes du BIOS. Je prépare alors les fichiers des étapes suivantes.
 
-## Étapes suivantes (fichiers préparés après l'identification)
+### Résultat de l'identification (2026-10-09)
+
+| Canal | Ventilateur | Courbe BIOS au repos |
+|---|---|---|
+| Fan #1 (`control/0`) | **Ventirad** (≈ 3 060 RPM max) | ≈ 49 % |
+| Fan #2 (`control/1`) | Boîtier (hub ou autre, non distingué) | ≈ 68 % |
+| Fan #7 (`control/6`) | Boîtier (hub ou autre, non distingué) | ≈ 30 % |
+
+Écriture à 100 % et retour au BIOS vérifiés sur les trois canaux (journal du 2026-10-09, 09:21–09:22).
+
+## Étapes suivantes
+
+> Changement de plan (2026-10-09) : l'étape « un seul canal de boîtier » est sautée. Seul, un ventilateur de boîtier agit à peine sur la température CPU : le régulateur le pousserait au maximum en jeu sans rien apprendre sur la régulation. L'écriture et le retour au BIOS étant déjà validés, on passe directement au groupe CPU complet.
 
 | Étape | Ce que pilote FanOMax | Durée d'observation | Contrôle |
 |---|---|---|---|
-| 3 | Un seul canal de boîtier (le hub), en régulation | 1 journée d'usage normal | `.\probe shadow-report --days 1` : températures, bruit, états |
-| 4 | Tout le groupe CPU (hub + ventirad) | 1 à 2 jours | idem + une session de jeu |
-| 5 | + le GPU | 1 à 2 jours | point chaud ≤ 85 °C, ventilateur GPU qui suit vraiment la consigne |
-| 6 | Tests finaux | 2 h | Cinebench 30 min, jeu 1 h ; `Stop-Service` → retour au BIOS audible ; `Start-Service` → reprise en douceur |
+| 3 | Groupe CPU complet (ventirad + boîtier) : `etape-3-groupe-cpu.json` | 1 à 2 jours, dont une session de jeu | `.\probe shadow-report --days 1` : températures, bruit, états |
+| 4 | + le GPU (fichier préparé après l'étape 3) | 1 à 2 jours | point chaud ≤ 85 °C, ventilateur GPU qui suit vraiment la consigne |
+| 5 | Tests finaux | 2 h | Cinebench 30 min, jeu 1 h ; `Stop-Service` → retour au BIOS audible ; `Start-Service` → reprise en douceur |
+
+```powershell
+Copy-Item docs\phase7\etape-3-groupe-cpu.json C:\ProgramData\FanOMax\config.json -Force
+```
 
 ## Ce qui change en mode Active
 

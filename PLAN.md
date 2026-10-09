@@ -277,12 +277,12 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] 116 tests au total
 
 **Bascule (utilisateur)**
-- [ ] Mise à jour du service, configuration de départ (fantôme, cible CPU 69 °C)
+- [x] Mise à jour du service, configuration de départ (fantôme, cible CPU 69 °C) : 2026-10-09 09:15
 - [ ] Contrôle des courbes Smart Fan dans l'UEFI, relevé des prises (CPU_FAN1, CHA_FAN…)
-- [ ] FanControl fermé et démarrage automatique désactivé (fermé depuis le 2026-10-09)
-- [ ] Identification des canaux Fan #1, #2, #7 (ventilation fixe à 100 %, un canal à la fois)
-- [ ] Écriture activée sur **un seul canal de boîtier** (hub), observer 24 h
-- [ ] Puis tout le groupe CPU (hub + ventirad)
+- [~] FanControl fermé (depuis le 2026-10-09) ; démarrage automatique à désactiver
+- [x] Identification : **Fan #1 = ventirad**, Fan #2 et #7 = boîtier. Écriture à 100 % et retour au BIOS vérifiés sur le vrai matériel
+- [ ] ~~Un seul canal de boîtier~~ : sauté (un ventilateur de boîtier seul agit à peine sur la température CPU)
+- [ ] Groupe CPU complet en pilotage (`etape-3-groupe-cpu.json`), observer 1 à 2 jours
 - [ ] Puis le GPU
 - [ ] Test de stress : Cinebench 30 min + jeu 1 h, sans oscillation ni dépassement
 - [ ] Tests du failsafe : arrêt du service (retour au BIOS), reprise en douceur au redémarrage
@@ -333,7 +333,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 
 ## 9. Questions ouvertes
 - [~] Le contrôle des ventilateurs de la RX 6750 XT via LHM fonctionne-t-il, ou faut-il ADLX ? Lecture OK et contrôle exposé (phase 1) ; l'écriture sera testée en phase 7
-- [~] Quel ventilateur physique sur chaque canal ? Les ventilateurs de boîtier sont sur un **hub**. Reste à savoir quel canal porte le hub et lequel porte le ventirad, parmi Fan #1 (max ≈ 3 060 RPM), Fan #2 (max ≈ 1 670 RPM) et Fan #7 (max ≈ 1 500 RPM). Canaux 3, 4, 5 : probablement vides. À confirmer en phase 7 en faisant varier chaque PWM.
+- [x] Quel ventilateur physique sur chaque canal ? **Fan #1 = ventirad** ; Fan #2 et #7 = boîtier (lequel porte le hub : non distingué, sans importance tant qu'ils sont dans le même groupe). Canaux 3, 4, 5 : pilotables, sans régime remonté, a priori rien de branché.
 - [ ] Capteurs carte mère à ignorer : `Temperature #3` (8 °C) et `#5` (12 °C) sont des entrées non branchées. Le failsafe ne doit jamais s'appuyer dessus.
 - [x] Délai entre puissance et température : T90 = 7 s (phase 1)
 - [x] Type de refroidissement CPU : **ventirad**
