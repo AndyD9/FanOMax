@@ -73,7 +73,7 @@ public static class FanNames
     private static readonly Dictionary<string, string> Known = new(StringComparer.Ordinal)
     {
         ["/lpc/nct6796dr/0/control/0"] = "Ventirad CPU",
-        ["/lpc/nct6796dr/0/control/1"] = "Haut · extraction",
+        ["/lpc/nct6796dr/0/control/1"] = "Haut ×2 · extraction",
         ["/lpc/nct6796dr/0/control/3"] = "Avant ×3 · admission",
         ["/lpc/nct6796dr/0/control/6"] = "Arrière · extraction",
         ["/gpu-amd/0/control/0"] = "Carte graphique",

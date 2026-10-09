@@ -61,7 +61,7 @@ Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixe
 | Canal | Ventilateur | Courbe BIOS au repos |
 |---|---|---|
 | Fan #1 (`control/0`) | **Ventirad** (≈ 3 060 RPM max) | ≈ 49 % |
-| Fan #2 (`control/1`) | **Haut**, extraction (≈ 1 670 RPM max) | ≈ 68 % |
+| Fan #2 (`control/1`) | **Haut, 2 ventilateurs en hub**, extraction (≈ 1 670 RPM max, régime d'un seul des deux) | ≈ 68 % |
 | Fan #3 (`control/2`) | rien | — |
 | Fan #4 (`control/3`) | **Avant, hub de 3 ventilateurs**, admission. **Aucun régime remonté** (0 RPM affiché) | ≈ 46–55 % |
 | Fan #5 (`control/4`) | rien | — |
@@ -71,7 +71,7 @@ Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixe
 
 > La première identification (09:21) était incomplète : seuls les canaux qui remontent un régime avaient été testés. Le hub avant, sur Fan #4, est resté sur la courbe du BIOS pendant les premiers pilotages (TROUBLESHOOT.md §5). Depuis, `etape-3-groupe-cpu.json` pilote les 4 canaux.
 
-**Pression dans le boîtier (choix du 2026-10-09 : positive).** Même % sur les 4 canaux : 3 ventilateurs en admission contre 2 en extraction. L'air entre par les filtres de l'avant, la poussière n'entre pas par les fentes non filtrées. Si besoin, le facteur par sortie `ControlScales` règle un canal à part (par exemple `0.8` sur l'avant = 80 % de la consigne, borné entre 20 et 100 %, ignoré à la température critique). Avec l'avant sous ≈ 0,67, l'approximation « débit ∝ % » donnerait une pression négative.
+**Pression dans le boîtier (choix du 2026-10-09 : positive).** 3 ventilateurs en admission (avant) contre 3 en extraction (2 en haut, 1 à l'arrière) : au même %, la pression serait neutre, voire négative (le filtre avant freine l'admission). Le facteur par sortie `ControlScales` met donc les extracteurs à **75 % de la consigne** : 3 × 0,75 = 2,25 contre 3 (approximation « débit ∝ % »). L'air entre par les filtres de l'avant, la poussière n'entre pas par les fentes non filtrées. Facteur borné entre 20 et 100 %, ignoré à la température critique (tout à 100 %). Le ventirad et l'avant restent la référence du % appliqué.
 
 ## Étapes suivantes
 

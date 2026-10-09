@@ -1,7 +1,7 @@
 {
   // FanOMax : ÉTAPE 3 : FanOMax PILOTE le groupe CPU (ventirad + tous les ventilateurs de boîtier), cible 69 °C.
-  // Identification du 2026-10-09 (complétée à 11:49) : Fan #1 ventirad, Fan #2 haut, Fan #4 hub avant (3 ventilateurs),
-  // Fan #7 arrière ; Fan #3 et #5 vides.
+  // Identification du 2026-10-09 (complétée à 11:49) : Fan #1 ventirad, Fan #2 haut (2 ventilateurs en hub),
+  // Fan #4 hub avant (3 ventilateurs), Fan #7 arrière ; Fan #3 et #5 vides.
   // Le GPU reste piloté par le pilote AMD. Retour arrière : etape-0-fantome.json.
   "FanOMax": {
     "Mode": "Active",
@@ -14,11 +14,14 @@
         "Enabled": true,
         "TemperatureSensor": "/amdcpu/0/temperature/2",
         "PowerSensor": "/amdcpu/0/power/0",
-        // Fan #1 ventirad · Fan #2 haut (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté) · Fan #7 arrière (extraction).
+        // Fan #1 ventirad · Fan #2 haut, 2 ventilateurs en hub (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté)
+        // · Fan #7 arrière (extraction).
         "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
-        // Pression POSITIVE (choix du 2026-10-09) : même % partout, 3 ventilateurs en admission contre 2 en extraction.
-        // L'air entre par les filtres de l'avant ; la poussière n'entre pas par les fentes.
-        // Pour régler l'avant à part, ajouter par exemple : "ControlScales": { "/lpc/nct6796dr/0/control/3": 0.8 },
+        // Pression POSITIVE (choix du 2026-10-09) : 3 en admission contre 3 en extraction, donc extracteurs à 75 % de la consigne
+        // (3 × 0,75 = 2,25 contre 3, approximation débit ∝ % ; le filtre avant freine un peu l'admission).
+        // L'air entre par les filtres de l'avant ; la poussière n'entre pas par les fentes. Au repos, extracteurs à 20 % minimum.
+        // Nécessite le service du 2026-10-09 12:40 ou plus récent (un service plus ancien ignore la ligne : même % partout).
+        "ControlScales": { "/lpc/nct6796dr/0/control/1": 0.75, "/lpc/nct6796dr/0/control/6": 0.75 },
         "TargetTemperature": 69,
         "CriticalTemperature": 90
       },
