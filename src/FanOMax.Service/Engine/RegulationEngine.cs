@@ -283,7 +283,7 @@ public sealed partial class RegulationEngine : IDisposable
     {
         var temperature = Read(values, group.TemperatureIndex);
         var power = Read(values, group.PowerIndex);
-        var appliedValues = group.ControlSensorIndices.Select(i => Read(values, i)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        var appliedValues = group.ReferenceSensorIndices.Select(i => Read(values, i)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
         double? applied = appliedValues.Count > 0 ? appliedValues.Average() : null;
 
         // Prise de main (passage en Active, reprise après le BIOS, après une erreur ou le départ de FanControl) :
@@ -348,7 +348,7 @@ public sealed partial class RegulationEngine : IDisposable
             {
                 foreach (var id in group.ControlIds)
                 {
-                    _backend.SetControl(id, percent);
+                    _backend.SetControl(id, group.OutputPercent(id, percent, status));
                     ImmutableInterlocked.Update(ref _written, set => set.Add(id));
                 }
 

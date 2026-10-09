@@ -44,14 +44,14 @@ public sealed class LiveStatusFile
         }
 
         var ticks = tick.Groups.ToDictionary(g => g.Name, StringComparer.Ordinal);
-        var owners = new Dictionary<string, GroupTick>(StringComparer.Ordinal);
+        var owners = new Dictionary<string, (GroupRuntime Group, GroupTick Tick)>(StringComparer.Ordinal);
         foreach (var group in groups)
         {
             if (ticks.TryGetValue(group.Name, out var groupTick))
             {
                 foreach (var id in group.ControlIds)
                 {
-                    owners.TryAdd(id, groupTick);
+                    owners.TryAdd(id, (group, groupTick));
                 }
             }
         }
@@ -64,8 +64,12 @@ public sealed class LiveStatusFile
             if (sensor.Kind == SensorKind.Control)
             {
                 var rpm = index.TryGetValue(sensor.Id.Replace("/control/", "/fan/", StringComparison.Ordinal), out var fanIndex) ? Value(fanIndex) : null;
-                var owner = owners.GetValueOrDefault(sensor.Id);
-                fans.Add(new LiveFan(sensor.Id, sensor.Name, sensor.HardwareName, Value(i), rpm, owner?.Name, owner?.Percent, owner?.Written ?? false));
+                // Objectif propre à la sortie : consigne du groupe × facteur de la sortie (ControlScales).
+                LiveFan fan = owners.TryGetValue(sensor.Id, out var owner)
+                    ? new(sensor.Id, sensor.Name, sensor.HardwareName, Value(i), rpm, owner.Tick.Name,
+                        owner.Group.OutputPercent(sensor.Id, owner.Tick.Percent, owner.Tick.Status), owner.Tick.Written)
+                    : new(sensor.Id, sensor.Name, sensor.HardwareName, Value(i), rpm, null, null, false);
+                fans.Add(fan);
             }
             else if (sensor.Kind == SensorKind.Temperature && Value(i) is { } temperature)
             {

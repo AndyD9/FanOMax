@@ -66,6 +66,13 @@ public sealed class GroupOptions
     /// </summary>
     public double? FixedPercent { get; set; }
 
+    /// <summary>
+    /// Facteur appliqué à la consigne du groupe, par sortie PWM (sortie absente = 1). Exemple : 0,6 sur l'avant = les
+    /// ventilateurs d'admission reçoivent 60 % de la consigne, pour régler l'équilibre admission / extraction.
+    /// Résultat borné entre 20 et 100 % ; ignoré à la température critique et en ventilation fixe (tout le groupe au même %).
+    /// </summary>
+    public Dictionary<string, double> ControlScales { get; set; } = new(StringComparer.Ordinal);
+
     public double EffectiveCriticalTemperature => CriticalTemperature ?? (Kind == GroupKind.Cpu ? 90 : 105);
 }
 

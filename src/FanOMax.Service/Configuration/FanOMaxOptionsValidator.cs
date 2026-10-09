@@ -77,6 +77,24 @@ public static class FanOMaxOptionsValidator
             {
                 errors.Add($"Groupe {label} : FixedPercent doit être entre 20 et 100 %.");
             }
+
+            foreach (var (control, scale) in group.ControlScales)
+            {
+                if (!group.Controls.Contains(control, StringComparer.Ordinal))
+                {
+                    errors.Add($"Groupe {label} : ControlScales cite {control}, qui n'est pas dans Controls.");
+                }
+
+                if (scale is < 0.3 or > 2 || double.IsNaN(scale))
+                {
+                    errors.Add($"Groupe {label} : le facteur de {control} doit être entre 0,3 et 2 (actuel : {scale}).");
+                }
+            }
+
+            if (group.Controls.Count > 0 && group.Controls.All(c => group.ControlScales.GetValueOrDefault(c, 1) != 1))
+            {
+                errors.Add($"Groupe {label} : au moins une sortie doit rester sans facteur (référence du % appliqué).");
+            }
         }
 
         return errors;

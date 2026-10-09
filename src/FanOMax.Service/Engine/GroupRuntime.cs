@@ -36,6 +36,27 @@ internal sealed class GroupRuntime
     /// <summary>Index des capteurs « Control » correspondants, pour lire le % réellement appliqué.</summary>
     public IReadOnlyList<int> ControlSensorIndices { get; }
 
+    /// <summary>
+    /// Index des capteurs des sorties sans facteur (<see cref="GroupOptions.ControlScales"/>) : le % appliqué du groupe,
+    /// comparable à la consigne (démarrage en douceur, estimation en mode fantôme), se lit sur elles seules.
+    /// </summary>
+    public IReadOnlyList<int> ReferenceSensorIndices =>
+        ControlIds.Select((id, i) => (id, i)).Where(c => Scale(c.id) == 1).Select(c => ControlSensorIndices[c.i]).ToList();
+
+    /// <summary>Plancher d'une sortie avec facteur : un ventilateur à l'arrêt ne refroidit plus rien.</summary>
+    public const double MinScaledPercent = 20;
+
+    public double Scale(string controlId) => Options.ControlScales.GetValueOrDefault(controlId, 1);
+
+    /// <summary>
+    /// % à écrire sur une sortie : la consigne du groupe multipliée par le facteur de la sortie, bornée entre 20 et 100 %.
+    /// À la température critique et en ventilation fixe, toutes les sorties reçoivent la consigne telle quelle.
+    /// </summary>
+    public double OutputPercent(string controlId, double percent, string status) =>
+        status is "Critical" or "Fixed" || Scale(controlId) == 1
+            ? percent
+            : Math.Clamp(percent * Scale(controlId), MinScaledPercent, 100);
+
     /// <summary>Vrai quand le groupe a été rendu au BIOS après une perte de capteur.</summary>
     public bool HandedBack { get; set; }
 

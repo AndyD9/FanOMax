@@ -11,7 +11,9 @@ namespace FanOMax.Service.Engine;
 /// </param>
 /// <param name="Status">Mode du régulateur, ou « Critical » (température critique) ou « Bios » (rendu au BIOS).</param>
 /// <param name="Percent">Consigne retenue (après la règle de température critique).</param>
-/// <param name="AppliedPercent">% réellement appliqué aux sorties PWM (lu sur le matériel : FanControl, BIOS ou FanOMax).</param>
+/// <param name="AppliedPercent">
+/// % réellement appliqué aux sorties PWM sans facteur (lu sur le matériel : FanControl, BIOS ou FanOMax), comparable à <paramref name="Percent"/>.
+/// </param>
 /// <param name="Written">Vrai si FanOMax a écrit la consigne sur le matériel pendant ce cycle.</param>
 public sealed record GroupTick(
     string Name,

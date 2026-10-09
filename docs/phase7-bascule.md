@@ -69,7 +69,9 @@ Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixe
 
 Écriture à 100 % et retour au BIOS vérifiés sur Fan #1, #2, #7 (09:21–09:22), puis #2, #7, #3, #4, #5 (11:42–11:49), en observant le boîtier, avec le tableau de bord sur « Tous les canaux ».
 
-> La première identification (09:21) était incomplète : seuls les canaux qui remontent un régime avaient été testés. Le hub avant, sur Fan #4, est resté sur la courbe du BIOS pendant les premiers pilotages (TROUBLESHOOT.md §5). Depuis, `etape-3-groupe-cpu.json` pilote les 4 canaux au même % : 3 ventilateurs en admission contre 2 en extraction, soit une **pression positive** (l'air entre par les filtres de l'avant, la poussière n'entre pas par les fentes).
+> La première identification (09:21) était incomplète : seuls les canaux qui remontent un régime avaient été testés. Le hub avant, sur Fan #4, est resté sur la courbe du BIOS pendant les premiers pilotages (TROUBLESHOOT.md §5). Depuis, `etape-3-groupe-cpu.json` pilote les 4 canaux.
+
+**Pression dans le boîtier (choix du 2026-10-09 : positive).** Même % sur les 4 canaux : 3 ventilateurs en admission contre 2 en extraction. L'air entre par les filtres de l'avant, la poussière n'entre pas par les fentes non filtrées. Si besoin, le facteur par sortie `ControlScales` règle un canal à part (par exemple `0.8` sur l'avant = 80 % de la consigne, borné entre 20 et 100 %, ignoré à la température critique). Avec l'avant sous ≈ 0,67, l'approximation « débit ∝ % » donnerait une pression négative.
 
 ## Étapes suivantes
 

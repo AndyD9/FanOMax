@@ -15,8 +15,10 @@
         "TemperatureSensor": "/amdcpu/0/temperature/2",
         "PowerSensor": "/amdcpu/0/power/0",
         // Fan #1 ventirad · Fan #2 haut (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté) · Fan #7 arrière (extraction).
-        // Même % partout : 3 ventilateurs en admission contre 2 en extraction = pression positive (moins de poussière).
         "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
+        // Pression POSITIVE (choix du 2026-10-09) : même % partout, 3 ventilateurs en admission contre 2 en extraction.
+        // L'air entre par les filtres de l'avant ; la poussière n'entre pas par les fentes.
+        // Pour régler l'avant à part, ajouter par exemple : "ControlScales": { "/lpc/nct6796dr/0/control/3": 0.8 },
         "TargetTemperature": 69,
         "CriticalTemperature": 90
       },

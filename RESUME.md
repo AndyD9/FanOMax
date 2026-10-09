@@ -32,8 +32,8 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
 
 ### Situation actuelle de la machine
 - Service `FanOMax` **installé et en marche**, en **mode Active** sur le groupe CPU (config = `docs/phase7/etape-3-groupe-cpu.json`).
-- Groupe CPU : **Fan #1 = ventirad**, **Fan #2 = haut** (extraction), **Fan #4 = hub avant de 3 ventilateurs** (admission, aucun régime remonté), **Fan #7 = arrière** (extraction), tous au même % : pression positive (3 en admission contre 2 en extraction). Fan #3 et #5 vides. **Cible CPU 69 °C** (profil Normal = 67 °C, surchargé).
-- ⚠️ Fan #4 (hub avant) ajouté au groupe le 2026-10-09 vers 12:00 dans `etape-3-groupe-cpu.json` : **à appliquer** (copie de la config), puis vérifier à l'œil que les ventilateurs avant tournent à 25 %, puisqu'aucun régime n'est remonté.
+- Groupe CPU : **Fan #1 = ventirad**, **Fan #2 = haut** (extraction), **Fan #4 = hub avant de 3 ventilateurs** (admission, aucun régime remonté), **Fan #7 = arrière** (extraction), tous au même % : **pression positive** (choix de l'utilisateur : 3 en admission contre 2 en extraction, moins de poussière). Fan #3 et #5 vides. Réglage par canal disponible (`ControlScales`, non utilisé). **Cible CPU 69 °C** (profil Normal = 67 °C, surchargé).
+- Fan #4 (hub avant) piloté depuis 12:19 (config actuelle = `etape-3-groupe-cpu.json`). Vérifié à l'œil : les ventilateurs avant tournent à 25 % (aucun régime remonté). Le service installé n'a pas encore `ControlScales` (code du 2026-10-09 vers 12:40) : inutile tant que le réglage n'est pas utilisé.
 - **GPU : pas encore piloté** (groupe désactivé). C'est le pilote AMD qui gère, souvent à plus de 80 % pour un point chaud de 55–65 °C.
 - **FanControl fermé**. Son démarrage automatique est à désactiver si ce n'est pas fait.
 - Version installée le 2026-10-09 à 10:01, avec le **plancher de protection**. La réinstallation a validé en réel le retour au BIOS à l'arrêt (« Retour au BIOS de 3 sortie(s) ») et la reprise en mode Active.
