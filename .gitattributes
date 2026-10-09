@@ -13,3 +13,4 @@
 *.ico     binary
 *.png     binary
 *.dll     binary
+*.cmd     text eol=crlf

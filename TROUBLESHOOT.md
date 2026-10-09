@@ -53,7 +53,7 @@ Select-String -Path "C:\ProgramData\FanOMax\logs\*.log" -Pattern "\[(ERR|FTL|WRN
 Select-String -Path "C:\ProgramData\FanOMax\logs\*.log" -Pattern "Groupe .* → " | Select-Object -Last 30
 
 # Bilan du mode fantôme (depuis le dossier du projet)
-& $probe shadow-report --days 1
+.\probe shadow-report --days 1
 
 # (Ré)installer / désinstaller le service (terminal admin)
 powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
@@ -217,6 +217,27 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Correctif :** ce qui a été changé (fichier, commit)
 - **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
 ```
+
+### 2026-10-09 : fausses alertes « valeur figée » sur le GPU
+- **Symptôme :** dans `shadow-report`, 23 alertes « Puissance : valeur figée » et 3 « Température : valeur figée » sur le groupe GPU, avec de brefs passages en `SensorLost`.
+- **Contexte :** phase 3, mode fantôme, PC au repos.
+- **Cause racine :** température et puissance GPU sont des **entiers** qui ne bougent pas au repos (mesuré dans les journaux : point chaud à 49 °C identique pendant **692 s**, puissance à 31 W pendant 134 s). Le seuil « figé » de 120 s, valable pour le Tctl du CPU (série identique la plus longue : 9 s), ne l'est pas pour le GPU. En mode Active, le GPU aurait été rendu au BIOS à tort.
+- **Correctif :** détection « valeur figée » désactivée pour le GPU (`RegulatorSettings.Gpu`) ; une vraie panne reste détectée (valeur absente ou hors plage), et le GPU garde sa propre protection thermique. Conservée pour le CPU.
+- **Prévention :** tests `GpuRegulator_ToleratesLongIdleWithIntegerReadings`, `CpuRegulator_StillDetectsAFrozenTemperature`.
+
+### 2026-10-08 : service arrêté sur « Espace insuffisant sur le disque »
+- **Symptôme :** service `FanOMax` arrêté le 2026-10-08 à 21:22 ; plus aucune donnée en mode fantôme.
+- **Journaux :** `[ERR] Erreur dans la boucle de régulation (1/5) : sorties rendues au BIOS — System.IO.IOException: Espace insuffisant sur le disque. : '…\shadow\shadow-20261008.csv'` à `ShadowLog.Write`.
+- **Cause racine :** le disque `C:` s'est rempli (2,6 % libres le 2026-10-09 ; les fichiers de FanOMax ne pèsent que 5 Mo). L'échec d'écriture du **journal de diagnostic** remontait comme une **erreur de régulation** : 5 erreurs consécutives, puis arrêt du service. Défaut de conception : un journal ne doit jamais interrompre la régulation.
+- **Correctif :** l'échec du journal des décisions est journalisé une fois, l'écriture est suspendue 60 s puis retentée, la régulation continue (`RegulationEngine.WriteShadowLog`) ; le fichier est refermé proprement après une erreur.
+- **Prévention :** test `ShadowLogFailure_DoesNotInterruptRegulation_AndIsRetried`.
+- **À surveiller :** espace libre sur `C:` (hors FanOMax).
+
+### 2026-10-08 : fausse alerte du watchdog au réveil de la veille
+- **Symptôme :** `[FTL] Watchdog : boucle de régulation bloquée depuis 83298 s, retour au BIOS.` au réveil du PC, puis `La boucle de régulation est repartie`.
+- **Cause racine :** pendant une mise en veille, aucun thread ne tourne mais l'horloge continue. Au réveil, le watchdog voyait 23 h sans cycle, et le premier cycle recevait un pas de temps de 83 298 s, ce qui sature d'un coup l'intégrale du PI et vide les filtres. En mode Active : retour au BIOS inutile et premières décisions faussées.
+- **Correctif :** `LoopTiming.IsSuspendGap` détecte les pauses du système. Le watchdog ignore une pause pendant laquelle il n'a pas tourné lui-même ; la boucle réinitialise les régulateurs (`ResetRegulators`) au lieu d'appliquer le pas de temps géant.
+- **Prévention :** tests `IsSuspendGap_DistinguishesSleepFromSlowCycles`, `ResetRegulators_ClearsTheAccumulatedCorrection`.
 
 ### 2026-10-07 : en mode fantôme, le régulateur CPU s'emballait vers 90 %
 - **Symptôme :** dès le premier démarrage du service, en jeu, FanOMax décidait 87–90 % pour le CPU alors que FanControl appliquait 53 %, avec une correction PI qui ne cessait de croître (+22 % en une minute).

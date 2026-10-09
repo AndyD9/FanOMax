@@ -1,6 +1,6 @@
 # Phase 3 : service Windows (mode fantôme)
 
-> Code : `src/FanOMax.Service`, `src/FanOMax.Hardware`. Tests : `tests/FanOMax.Service.Tests` (30 tests, faux matériel).
+> Code : `src/FanOMax.Service`, `src/FanOMax.Hardware`. Tests : `tests/FanOMax.Service.Tests` (38 tests, faux matériel).
 
 ## 1. Ce que fait le service
 
@@ -23,6 +23,9 @@ Toutes les secondes :
 | Température critique | 100 % immédiatement | `Active_CriticalTemperature_ForcesFullSpeed` |
 | Erreur dans la boucle | Retour au BIOS, nouvelle tentative ; arrêt après 5 erreurs consécutives (Windows relance le service 2 fois) | service |
 | Boucle bloquée > 5 s | Le **watchdog** (thread dédié) rend la main au BIOS | service |
+| Réveil après une veille | Pause reconnue (pas de fausse alerte du watchdog), régulateurs réinitialisés | `IsSuspendGap_DistinguishesSleepFromSlowCycles`, `ResetRegulators_ClearsTheAccumulatedCorrection` |
+| Journal des décisions en échec (disque plein…) | Erreur journalisée une fois, nouvel essai toutes les 60 s, **la régulation continue** | `ShadowLogFailure_DoesNotInterruptRegulation_AndIsRetried` |
+| Capteurs GPU stables au repos | Pas de fausse alerte « valeur figée » (entiers constants plusieurs minutes) | `GpuRegulator_ToleratesLongIdleWithIntegerReadings` |
 | Arrêt du service | Retour au BIOS des seules sorties pilotées par FanOMax | `Dispose_HandsBackOnlyTheControlsFanOMaxWrote` |
 | Configuration invalide | Refusée, la précédente reste active, erreur dans le journal | `Reconfigure_InvalidOptions_KeepsTheCurrentConfiguration` |
 | Passage Active → Shadow | Retour au BIOS immédiat des sorties pilotées | `Reconfigure_FromActiveToShadow_HandsBackAndStopsWriting` |
@@ -85,7 +88,7 @@ avec `c` l'effet des ventilateurs du modèle (0,153 °C/% CPU, 0,103 °C/% GPU).
 2. Utiliser le PC normalement **plusieurs jours** : bureau, jeux, charges lourdes.
 3. Bilan, depuis le dossier du projet :
    ```powershell
-   & $probe shadow-report --days 3
+   .\probe shadow-report --days 3
    ```
    Pour chaque groupe : ventilation et température appliquées aujourd'hui, comparées à ce que FanOMax aurait fait (température estimée par le modèle), « yoyo » des ventilateurs (course en %/min), états du régulateur et défauts capteurs.
 4. Si le bilan est bon : phase 7, bascule progressive en mode `Active`.

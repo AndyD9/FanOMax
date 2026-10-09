@@ -17,18 +17,15 @@
 4. Pour les FPS : télécharger **PresentMon** (Intel, open source) depuis la [page des releases](https://github.com/GameTechDev/PresentMon/releases/latest),
    fichier `PresentMon-2.6.0-x64.exe` (≈ 1 Mo, **pas** le `.msi`), et le placer dans `tools\`.
 
-Pour raccourcir les commandes, définir une fois par session de terminal le chemin de la sonde (chemin absolu : fonctionne depuis n'importe quel dossier) :
-```powershell
-$probe = "$HOME\Documents\DEV\FanControl\src\FanOMax.Probe\bin\Release\net10.0-windows\FanOMax.Probe.exe"
-```
+La sonde se lance avec le raccourci **`.\probe`** à la racine du projet (fichier `probe.cmd`), par exemple `.\probe inventory`.
 
-> ⚠️ Taper `inventory` seul ne fonctionne pas : c'est un argument de la sonde, pas une commande Windows. Toujours écrire `& $probe inventory`.
-> Le terminal doit être dans le dossier du projet (`cd` ci-dessus), car les fichiers sont écrits dans `docs\` et `captures\` du dossier courant.
+> ⚠️ Taper `inventory` seul ne fonctionne pas : c'est un argument de la sonde, pas une commande Windows. Toujours écrire `.\probe inventory`.
+> Le terminal doit être dans le dossier du projet (`cd` ci-dessus) : le raccourci s'y trouve, et les fichiers sont écrits dans `docs\` et `captures\` du dossier courant.
 
 ## 1. Inventaire (1 min)
 
 ```powershell
-& $probe inventory
+.\probe inventory
 ```
 
 Produit `docs\hardware-inventory.md`. Vérifier :
@@ -40,7 +37,7 @@ Produit `docs\hardware-inventory.md`. Vérifier :
 
 Fermer les applications lourdes, ne rien faire sur le PC.
 ```powershell
-& $probe record --label repos --duration 10m
+.\probe record --label repos --duration 10m
 ```
 
 ## 3. Charge CPU maximale, ventilateurs à 100 % (15 min)
@@ -50,7 +47,7 @@ Objectif : savoir si **70 °C est atteignable** avec ce ventirad.
 1. Dans **FanControl**, mettre les ventilateurs CPU et boîtier à **100 %** (courbe fixe ou « Manual »).
 2. Lancer l'enregistrement :
    ```powershell
-   & $probe record --label cinebench-100pct --duration 15m
+   .\probe record --label cinebench-100pct --duration 15m
    ```
 3. Attendre **1 minute** (référence au repos), puis lancer **Cinebench R23/2024 multi-cœur** en boucle (« Minimum test duration : 10 minutes »).
 4. Laisser refroidir jusqu'à la fin de l'enregistrement (≈ 4 min de retour au repos).
@@ -60,14 +57,14 @@ Objectif : savoir si **70 °C est atteignable** avec ce ventirad.
 
 Avec les courbes FanControl habituelles. Jeu en **plein écran fenêtré** si possible.
 ```powershell
-& $probe record --label jeu --duration 20m --fps
+.\probe record --label jeu --duration 20m --fps
 ```
 Commencer l'enregistrement **avant** de lancer la partie (≈ 1 min au menu ou sur le bureau), pour capter l'échelon de charge.
 
 ## 5. Analyse
 
 ```powershell
-Get-ChildItem captures\*.csv | ForEach-Object { & $probe analyze $_.FullName }
+Get-ChildItem captures\*.csv | ForEach-Object { .\probe analyze $_.FullName }
 ```
 
 Chaque analyse produit un `captures\*.analysis.md` à côté du CSV, avec :
@@ -87,7 +84,7 @@ Objectif : mesurer **l'effet réel des ventilateurs** sur la température CPU à
 1. Lancer un jeu stable (une scène qui charge le CPU de façon régulière, autour de 80–90 W) et y rester.
 2. Lancer l'enregistrement :
    ```powershell
-   & $probe record --label balayage --duration 16m --fps
+   .\probe record --label balayage --duration 16m --fps
    ```
 3. Dans **FanControl**, mettre les ventilateurs **CPU et boîtier** à une valeur fixe, en changeant toutes les 5 min, sans quitter le jeu :
    - 0 à 5 min : **30 %** ;
@@ -96,7 +93,7 @@ Objectif : mesurer **l'effet réel des ventilateurs** sur la température CPU à
 4. Remettre les courbes habituelles.
 5. Recalibrer avec toutes les captures :
    ```powershell
-   & $probe calibrate (Get-ChildItem captures\*.csv | % FullName)
+   .\probe calibrate (Get-ChildItem captures\*.csv | % FullName)
    ```
    Le rapport `docs\thermal-model.md` indique si l'effet des ventilateurs est identifié, et la ligne de code à reporter dans `StaticThermalModel`.
 

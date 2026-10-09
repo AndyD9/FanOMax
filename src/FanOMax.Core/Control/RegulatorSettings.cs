@@ -77,6 +77,11 @@ public sealed record RegulatorSettings
     /// <summary>
     /// Réglages GPU (RX 6750 XT) par profil, régulés sur le point chaud (cible utilisateur : 80–85 °C).
     /// Pas de détection de limite thermique : le GPU en est très loin (69 °C max mesuré en jeu).
+    /// <para>
+    /// Pas de détection de « valeur figée » : température et puissance GPU sont des entiers, stables au repos
+    /// (mesuré : point chaud identique pendant 692 s). Une vraie panne de lecture reste détectée (valeur absente
+    /// ou hors plage), et le GPU garde sa propre protection thermique.
+    /// </para>
     /// </summary>
     public static RegulatorSettings Gpu(FanProfile profile) => new()
     {
@@ -89,7 +94,7 @@ public sealed record RegulatorSettings
         Model = StaticThermalModel.RadeonRx6750XtPhase1,
         MinPercent = 30,
         ThermalLimit = null,
-        TemperatureGuard = new SensorGuardSettings(Min: 1, Max: 120),
-        PowerGuard = new SensorGuardSettings(Min: 0, Max: 400),
+        TemperatureGuard = new SensorGuardSettings(Min: 1, Max: 120, FrozenSeconds: double.PositiveInfinity),
+        PowerGuard = new SensorGuardSettings(Min: 0, Max: 400, FrozenSeconds: double.PositiveInfinity),
     };
 }

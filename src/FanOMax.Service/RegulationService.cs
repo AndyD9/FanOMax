@@ -104,6 +104,14 @@ public sealed partial class RegulationService(
                 var dt = clock.Elapsed.TotalSeconds;
                 clock.Restart();
 
+                // Réveil après une veille : l'écart n'est pas un vrai pas de temps (il saturerait filtres et intégrale).
+                if (LoopTiming.IsSuspendGap(dt, interval.TotalSeconds))
+                {
+                    Interlocked.Exchange(ref _lastHeartbeat, Stopwatch.GetTimestamp());
+                    engine.ResetRegulators(string.Create(CultureInfo.InvariantCulture, $"reprise après une pause de {dt:0} s (mise en veille ?)"));
+                    dt = interval.TotalSeconds;
+                }
+
                 if (_pendingOptions is { } pending)
                 {
                     _pendingOptions = null;
@@ -171,8 +179,20 @@ public sealed partial class RegulationService(
     {
         var thread = new Thread(() =>
         {
+            var lastCheck = Stopwatch.GetTimestamp();
             while (!token.WaitHandle.WaitOne(TimeSpan.FromSeconds(1)))
             {
+                var now = Stopwatch.GetTimestamp();
+                var sinceLastCheck = Stopwatch.GetElapsedTime(lastCheck, now).TotalSeconds;
+                lastCheck = now;
+
+                // Le watchdog lui-même n'a pas tourné : le système était en veille, pas la boucle bloquée.
+                if (LoopTiming.IsSuspendGap(sinceLastCheck, 1))
+                {
+                    Interlocked.Exchange(ref _lastHeartbeat, now);
+                    continue;
+                }
+
                 var stalled = Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastHeartbeat));
                 if (stalled.TotalSeconds > engine.Options.Safety.WatchdogSeconds && Interlocked.Exchange(ref _watchdogTripped, 1) == 0)
                 {

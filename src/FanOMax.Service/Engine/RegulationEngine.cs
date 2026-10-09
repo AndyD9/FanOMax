@@ -19,6 +19,7 @@ namespace FanOMax.Service.Engine;
 public sealed partial class RegulationEngine : IDisposable
 {
     private const double FanControlCheckSeconds = 10;
+    private const double ShadowLogRetrySeconds = 60;
 
     private readonly IHardwareBackend _backend;
     private readonly ILogger _logger;
@@ -32,6 +33,7 @@ public sealed partial class RegulationEngine : IDisposable
     private FanOMaxOptions _options = new();
     private string? _serializedOptions;
     private double _sinceFanControlCheck = double.MaxValue;
+    private double _shadowLogRetryIn;
     private bool _fanControlRunning;
     private bool _disposed;
 
@@ -141,12 +143,63 @@ public sealed partial class RegulationEngine : IDisposable
         }
 
         var tick = new EngineTick(_clock(), _options.Mode, writing, _fanControlRunning, results);
-        if (_options.ShadowLog.Enabled)
+        WriteShadowLog(tick, dtSeconds);
+        return tick;
+    }
+
+    /// <summary>Vrai tant que le journal des décisions est en échec (écriture suspendue).</summary>
+    public bool ShadowLogFailing { get; private set; }
+
+    /// <summary>
+    /// Repart de régulateurs neufs, par exemple au réveil du PC : l'état accumulé avant la veille
+    /// (filtres, intégrale, moyenne de puissance) ne décrit plus la situation.
+    /// </summary>
+    public void ResetRegulators(string reason)
+    {
+        foreach (var group in _groups)
         {
-            _shadowLog?.Write(tick);
+            group.ResetRegulator();
         }
 
-        return tick;
+        LogRegulatorsReset(_logger, reason);
+    }
+
+    /// <summary>
+    /// Le journal des décisions est un outil de diagnostic : son échec (disque plein…) ne doit jamais
+    /// interrompre la régulation. Erreur journalisée une fois, écriture suspendue puis retentée.
+    /// </summary>
+    private void WriteShadowLog(EngineTick tick, double dtSeconds)
+    {
+        if (!_options.ShadowLog.Enabled || _shadowLog is null)
+        {
+            return;
+        }
+
+        if (_shadowLogRetryIn > 0)
+        {
+            _shadowLogRetryIn -= dtSeconds;
+            return;
+        }
+
+        try
+        {
+            _shadowLog.Write(tick);
+            if (ShadowLogFailing)
+            {
+                ShadowLogFailing = false;
+                LogShadowLogRestored(_logger);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!ShadowLogFailing)
+            {
+                LogShadowLogFailed(_logger, ex, ShadowLogRetrySeconds);
+            }
+
+            ShadowLogFailing = true;
+            _shadowLogRetryIn = ShadowLogRetrySeconds;
+        }
     }
 
     /// <summary>
@@ -362,4 +415,13 @@ public sealed partial class RegulationEngine : IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "FanControl n'est plus en cours d'exécution : FanOMax pilote les ventilateurs")]
     private static partial void LogFanControlGone(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Journal des décisions en échec (la régulation continue) : nouvel essai dans {RetrySeconds} s")]
+    private static partial void LogShadowLogFailed(ILogger logger, Exception exception, double retrySeconds);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Journal des décisions de nouveau écrit")]
+    private static partial void LogShadowLogRestored(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Régulateurs réinitialisés : {Reason}")]
+    private static partial void LogRegulatorsReset(ILogger logger, string reason);
 }

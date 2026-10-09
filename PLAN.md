@@ -236,8 +236,11 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] Journaux Serilog (14 jours) avec résumé par minute
 - [x] Scripts d'installation / désinstallation, récupération automatique (2 redémarrages)
 - [x] Sonde : `shadow-report`, bilan FanOMax contre FanControl
-- [x] 30 tests du service (faux matériel) : 95 tests au total
+- [x] 38 tests du service (faux matériel) : 105 tests au total
 - [x] Correctif après le premier démarrage : température estimée en mode fantôme (le PI s'emballait en boucle ouverte)
+- [x] Correctifs après 2 jours de mode fantôme : réveil après veille (watchdog et pas de temps), journal en échec sans arrêt de la régulation (disque plein), pas de détection « figée » sur le GPU (capteurs entiers)
+- [x] Raccourci `probe.cmd` à la racine du projet ; `shadow-report` ignore les journaux de l'ancien format
+- [ ] Avant la phase 7 : démarrage en douceur (partir de la ventilation appliquée, pas de « cible inatteignable » pendant le remplissage de la moyenne de puissance)
 - [ ] ~~Collecte des FPS par le service~~ : déplacée en phase 6 (utile seulement à l'affichage)
 - [ ] **Installation par l'utilisateur et plusieurs jours en mode fantôme**
 - **Livrable :** service qui tourne en mode fantôme pendant plusieurs jours sans erreur
@@ -310,6 +313,9 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Groupe CPU = Fan #1, #2, #7 (ventilateurs qui tournent), pilotés au même % | Comme FanControl aujourd'hui ; le hub et le ventirad seront distingués en phase 7 si besoin |
 | 2026-10-07 | Arrêt sur erreurs matérielles avec code de sortie 1 | Windows relance le service (2 tentatives), le BIOS garde la main entre-temps |
 | 2026-10-07 | Mode fantôme : régulateur alimenté par une **température estimée** (mesure + c × écart de ventilation, filtré 30 s) | Sans cela, boucle ouverte et PI emballé vers 90 % (incident du premier démarrage, TROUBLESHOOT.md §5) |
+| 2026-10-09 | Le journal des décisions ne peut jamais interrompre la régulation | Incident disque plein du 2026-10-08 : le service s'était arrêté |
+| 2026-10-09 | Pause > 10 s (et > 5 intervalles) = veille : régulateurs réinitialisés, watchdog ignoré | Incident du réveil du 2026-10-08 (pas de temps de 83 298 s) |
+| 2026-10-09 | Pas de détection « valeur figée » sur le GPU | Capteurs entiers stables au repos (692 s mesurés) : fausses alertes |
 
 ---
 

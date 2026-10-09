@@ -17,7 +17,10 @@ public enum SensorStatus
 /// <param name="Min">Valeur minimale plausible.</param>
 /// <param name="Max">Valeur maximale plausible.</param>
 /// <param name="HoldSeconds">Durée pendant laquelle une valeur invalide est remplacée par la dernière valeur valide.</param>
-/// <param name="FrozenSeconds">Durée au-delà de laquelle une valeur strictement identique est considérée comme figée.</param>
+/// <param name="FrozenSeconds">
+/// Durée au-delà de laquelle une valeur strictement identique est considérée comme figée
+/// (<see cref="double.PositiveInfinity"/> : désactivé, pour les capteurs entiers stables au repos).
+/// </param>
 public sealed record SensorGuardSettings(double Min, double Max, double HoldSeconds = 3, double FrozenSeconds = 120);
 
 /// <summary>

@@ -64,6 +64,28 @@ public class ControlPrimitivesTests
     }
 
     [Fact]
+    public void GpuRegulator_ToleratesLongIdleWithIntegerReadings()
+    {
+        // Mesuré au repos : point chaud à 49 °C et puissance à 31 W, identiques pendant plus de 10 min.
+        var regulator = new FanRegulator(RegulatorSettings.Gpu(FanProfile.Normal));
+
+        var decisions = Enumerable.Range(0, 1200).Select(_ => regulator.Update(1, 49, 31)).ToList();
+
+        Assert.All(decisions, d => Assert.Equal(RegulatorMode.Normal, d.Mode));
+    }
+
+    [Fact]
+    public void CpuRegulator_StillDetectsAFrozenTemperature()
+    {
+        // Le Tctl du 5800X fluctue en permanence (série identique la plus longue mesurée : 9 s).
+        var regulator = new FanRegulator(RegulatorSettings.Cpu(FanProfile.Normal));
+
+        var decisions = Enumerable.Range(0, 200).Select(i => regulator.Update(1, 60, 40 + (i % 3))).ToList();
+
+        Assert.Equal(RegulatorMode.SensorLost, decisions[^1].Mode);
+    }
+
+    [Fact]
     public void FanCurve_InterpolatesAndClampsAtTheEnds()
     {
         var curve = new FanCurve([(40, 30), (60, 50), (80, 100)]);

@@ -25,7 +25,7 @@ internal sealed class GroupRuntime
 
     public RegulatorSettings Settings { get; }
 
-    public FanRegulator Regulator { get; }
+    public FanRegulator Regulator { get; private set; }
 
     public int TemperatureIndex { get; }
 
@@ -53,6 +53,17 @@ internal sealed class GroupRuntime
     /// (inertie du ventirad). Utilisé uniquement quand FanOMax ne pilote pas.
     /// </summary>
     public Ema ShadowOffset { get; } = new(30);
+
+    /// <summary>
+    /// Repart d'un régulateur neuf (filtres, intégrale, moyenne de puissance), par exemple au réveil du PC :
+    /// l'état accumulé avant la veille ne décrit plus la situation.
+    /// </summary>
+    public void ResetRegulator()
+    {
+        Regulator = new FanRegulator(Settings);
+        ShadowOffset.Reset();
+        LastDecisionPercent = null;
+    }
 
     /// <summary>Résout le groupe sur le matériel. Renvoie null et une erreur si un capteur ou une sortie est introuvable.</summary>
     public static GroupRuntime? Resolve(GroupOptions options, FanProfile profile, IHardwareBackend backend, out string? error)

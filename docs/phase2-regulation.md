@@ -83,7 +83,7 @@ Ventilation minimale : 25 % (CPU/boîtier), 30 % (GPU). En cas de perte de la te
 ## 6. Recalibrer
 
 ```powershell
-& $probe calibrate (Get-ChildItem captures\*.csv | % FullName)
+.\probe calibrate (Get-ChildItem captures\*.csv | % FullName)
 ```
 
 Produit `docs\thermal-model.md` avec les coefficients calibrés comparés à ceux du code, et la ligne de code à reporter dans `StaticThermalModel`.

@@ -25,9 +25,41 @@ public sealed class ShadowLog : IDisposable
         Directory.CreateDirectory(directory);
     }
 
+    /// <summary>
+    /// Écrit le cycle. En cas d'erreur d'écriture (disque plein, dossier supprimé…), le fichier est refermé
+    /// pour être rouvert à la tentative suivante, et l'exception est propagée à l'appelant.
+    /// </summary>
     public void Write(EngineTick tick)
     {
         ArgumentNullException.ThrowIfNull(tick);
+        try
+        {
+            WriteLines(tick);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CloseQuietly();
+            throw;
+        }
+    }
+
+    private void CloseQuietly()
+    {
+        try
+        {
+            _writer?.Dispose();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Le tampon non écrit est perdu : sans importance pour un journal de diagnostic.
+        }
+
+        _writer = null;
+        _pending = 0;
+    }
+
+    private void WriteLines(EngineTick tick)
+    {
         EnsureFile(DateOnly.FromDateTime(tick.Timestamp));
 
         foreach (var g in tick.Groups)
@@ -62,11 +94,7 @@ public sealed class ShadowLog : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        _writer?.Dispose();
-        _writer = null;
-    }
+    public void Dispose() => CloseQuietly();
 
     private void EnsureFile(DateOnly day)
     {
@@ -75,7 +103,7 @@ public sealed class ShadowLog : IDisposable
             return;
         }
 
-        _writer?.Dispose();
+        CloseQuietly();
         _day = day;
         var path = PathFor(day);
         var isNew = !File.Exists(path);

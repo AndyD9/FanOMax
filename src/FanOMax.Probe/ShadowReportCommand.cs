@@ -31,7 +31,9 @@ internal static class ShadowReportCommand
             .TakeLast(days)
             .SelectMany(g => g.Order(StringComparer.Ordinal))
             .ToList();
-        var rows = files.SelectMany(Read).ToList();
+        var perFile = files.Select(f => (File: f, Rows: Read(f))).Where(p => p.Rows.Count > 0).ToList();
+        files = perFile.Select(p => p.File).ToList();
+        var rows = perFile.SelectMany(p => p.Rows).ToList();
         if (rows.Count == 0)
         {
             Console.Error.WriteLine($"Aucune donnée dans {directory}.");
@@ -47,12 +49,21 @@ internal static class ShadowReportCommand
         return 0;
     }
 
-    private static IEnumerable<Row> Read(string path)
+    private static List<Row> Read(string path)
     {
         // Le fichier du jour est ouvert en écriture par le service : lecture partagée.
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
         var header = Csv.SplitLine(reader.ReadLine() ?? "");
+
+        // Journaux antérieurs au 2026-10-07 14:27 (sans température estimée) : le régulateur s'y emballait
+        // en boucle ouverte (TROUBLESHOOT.md §5). Leurs décisions ne sont pas représentatives : ignorés.
+        if (!header.Contains("regulator_temperature"))
+        {
+            Console.Error.WriteLine($"Ignoré (ancien format, décisions non représentatives) : {Path.GetFileName(path)}");
+            return [];
+        }
+
         int Col(string name) => header.IndexOf(name);
         int time = Col("timestamp"), group = Col("group"), target = Col("target"), temp = Col("temperature"), regulatorTemp = Col("regulator_temperature"),
             decision = Col("decision_percent"), applied = Col("applied_percent"), status = Col("status"), reason = Col("reason");
@@ -104,11 +115,12 @@ internal static class ShadowReportCommand
     {
         var model = name.Contains("GPU", StringComparison.OrdinalIgnoreCase) ? StaticThermalModel.RadeonRx6750XtPhase1 : StaticThermalModel.Ryzen5800XPhase1;
         var target = rows.LastOrDefault(r => r.Target.HasValue)?.Target ?? double.NaN;
-        var hours = (rows[^1].Time - rows[0].Time).TotalHours;
+        // Un échantillon par seconde : le nombre d'échantillons donne la durée de fonctionnement réelle (hors veille).
+        var runningHours = rows.Count / 3600.0;
 
         sb.AppendLine(CultureInfo.InvariantCulture, $"## {name} (cible {F(target, "0")} °C)");
         sb.AppendLine();
-        sb.AppendLine(CultureInfo.InvariantCulture, $"{rows.Count} échantillons sur {F(hours, "0.0")} h.");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"{rows.Count} échantillons, soit ≈ {F(runningHours, "0.0")} h de fonctionnement (hors veille et arrêts).");
         sb.AppendLine();
 
         var measured = rows.Select(r => r.Temperature).ToList();
