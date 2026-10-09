@@ -11,6 +11,9 @@ public enum RegulatorMode
     /// <summary>Le CPU tient lui-même sa température (THM limit) : ventilation selon le profil, PI gelé.</summary>
     ThermalLimited,
 
+    /// <summary>La température monte vraiment (au-delà du plancher de protection) : ventilation minimale imposée.</summary>
+    Protection,
+
     /// <summary>Un capteur vient de renvoyer une valeur invalide : dernière valeur valide conservée.</summary>
     SensorHolding,
 
@@ -47,6 +50,8 @@ public sealed class FanRegulator
     private double _lastFeedforward;
     private double _elapsed;
     private double? _primedPercent;
+    private readonly Ema _protectionFilter;
+    private readonly FanCurve? _protectionCurve;
 
     public FanRegulator(RegulatorSettings settings)
     {
@@ -59,6 +64,8 @@ public sealed class FanRegulator
         _pi = new PiController(settings.Pi);
         _shaper = new OutputShaper(settings.MaxRisePerSecond, settings.MaxFallPerSecond, settings.Deadband);
         _lastFeedforward = settings.MinPercent;
+        _protectionFilter = new Ema(settings.ProtectionTimeConstant);
+        _protectionCurve = settings.ProtectionCurve is { Count: > 0 } points ? new FanCurve(points) : null;
     }
 
     public RegulatorSettings Settings => _settings;
@@ -130,6 +137,19 @@ public sealed class FanRegulator
             // Pendant le préchauffage, l'anticipation repose sur trop peu de valeurs pour conclure à une cible inatteignable.
             var unreachable = !warmingUp && target >= _settings.MaxPercent && filteredTemp > _settings.TargetTemperature + 1;
             mode = unreachable ? RegulatorMode.TargetUnreachable : RegulatorMode.Normal;
+        }
+
+        // Plancher de protection, sur une température à peine lissée : réagit en secondes à une vraie montée,
+        // là où le PI (lissage 10 s) est volontairement lent. Le profil garde la main en régime limité thermiquement.
+        var fastTemp = _protectionFilter.Update(temp.Value, dtSeconds);
+        if (_protectionCurve is { } curve && !_thermalLimited && fastTemp >= _settings.ProtectionCurve![0].Temperature)
+        {
+            var floor = curve.Evaluate(fastTemp);
+            if (floor > target)
+            {
+                target = floor;
+                mode = RegulatorMode.Protection;
+            }
         }
 
         string? reason = null;

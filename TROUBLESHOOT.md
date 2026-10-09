@@ -231,6 +231,14 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
 ```
 
+### 2026-10-09 : pic à 84,9 °C au premier quart d'heure de pilotage
+- **Symptôme :** premier pilotage réel du groupe CPU (cible 69 °C, jeu). Après 14 min impeccables (69,3 °C de moyenne, 40 % de ventilation), le Tctl est monté de 69 à **84,9 °C** en 25 s (09:55:30 → 09:55:58), puis est retombé quand la charge a baissé.
+- **Journaux :** puissance stable (≈ 80 W, 72–93 W) ; ventilation 38 % → 52 % ; `filtered_temperature` 78 °C quand la mesure brute atteignait 85 °C ; état `Normal` tout du long.
+- **Cause racine :** charge **concentrée sur un ou deux cœurs** (chargement, compilation de shaders…) : à puissance égale, le cœur le plus chaud (Tctl) monte bien plus. Le PI régule volontairement sur une température lissée sur 10 s (pour ignorer les pics de boost) : il a réagi trop lentement à une vraie montée de 30 s. Et FanOMax ventilait moins que le BIOS (38 % contre ≈ 49 %) : point de départ plus bas. Historique : 0 s au-dessus de 80 °C en 6,3 h sous FanControl, 6 s en 14 min sous FanOMax. La THM limit d'Hydra (80 °C) tolère de brefs dépassements.
+- **Correctif :** **plancher de protection** sur une température lissée sur 2 s : 40 % à 74 °C, 70 % à 78 °C, 100 % à 82 °C (`RegulatorSettings.CpuProtectionCurve`). Inactif en régime limité thermiquement (le profil décide). Rejeu du vrai pic : ≥ 85 % de ventilation au sommet au lieu d'≈ 50 %.
+- **Prévention :** tests `ProtectionFloorTests` sur la série réelle du pilotage (`Data/pilotage-pic-20261009.csv`) : le pic est couvert, le jeu normal n'est quasiment pas touché (2 s de déclenchement en 14 min, +3 %), un pic d'une seconde n'a pas d'effet.
+- **Pas de danger à aucun moment :** seuil critique 90 °C non approché ; le 5800X est conçu pour fonctionner jusqu'à 90 °C.
+
 ### 2026-10-09 : fausses alertes « valeur figée » sur le GPU
 - **Symptôme :** dans `shadow-report`, 23 alertes « Puissance : valeur figée » et 3 « Température : valeur figée » sur le groupe GPU, avec de brefs passages en `SensorLost`.
 - **Contexte :** phase 3, mode fantôme, PC au repos.

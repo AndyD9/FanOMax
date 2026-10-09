@@ -64,14 +64,30 @@ public sealed record RegulatorSettings
     public double FailsafePercent { get; init; } = 100;
 
     /// <summary>
+    /// Plancher de protection : ventilation minimale selon la température à peine lissée (<see cref="ProtectionTimeConstant"/>),
+    /// pour réagir vite quand la température monte vraiment (charge concentrée sur un cœur). Inactif sous le premier point,
+    /// et en régime limité thermiquement (le profil décide). Null : désactivé.
+    /// </summary>
+    public IReadOnlyList<(double Temperature, double Percent)>? ProtectionCurve { get; init; }
+
+    /// <summary>Constante de temps du filtre de température du plancher de protection (s) : ignore les pics d'une seconde.</summary>
+    public double ProtectionTimeConstant { get; init; } = 2;
+
+    /// <summary>
+    /// Plancher CPU, mesuré le 2026-10-09 : en jeu, une charge concentrée a porté le Tctl de 69 à 84,9 °C en 25 s à puissance
+    /// constante, alors que le PI (température lissée sur 10 s) ne montait la ventilation que de 38 à 52 %.
+    /// </summary>
+    public static IReadOnlyList<(double Temperature, double Percent)> CpuProtectionCurve { get; } = [(74, 40), (78, 70), (82, 100)];
+
+    /// <summary>
     /// Réglages CPU (5800X + ventirad) par profil :
     /// Silence vise 70 °C et ventile peu en régime limité ; Perf vise 65 °C et ventile à fond pour garder les fréquences.
     /// </summary>
     public static RegulatorSettings Cpu(FanProfile profile) => profile switch
     {
-        FanProfile.Silence => new RegulatorSettings { TargetTemperature = 70, ThermalLimit = new ThermalLimitSettings(FanPercent: 50) },
-        FanProfile.Perf => new RegulatorSettings { TargetTemperature = 65, ThermalLimit = new ThermalLimitSettings(FanPercent: 100) },
-        _ => new RegulatorSettings { TargetTemperature = 67, ThermalLimit = new ThermalLimitSettings(FanPercent: 75) },
+        FanProfile.Silence => new RegulatorSettings { TargetTemperature = 70, ThermalLimit = new ThermalLimitSettings(FanPercent: 50), ProtectionCurve = CpuProtectionCurve },
+        FanProfile.Perf => new RegulatorSettings { TargetTemperature = 65, ThermalLimit = new ThermalLimitSettings(FanPercent: 100), ProtectionCurve = CpuProtectionCurve },
+        _ => new RegulatorSettings { TargetTemperature = 67, ThermalLimit = new ThermalLimitSettings(FanPercent: 75), ProtectionCurve = CpuProtectionCurve },
     };
 
     /// <summary>

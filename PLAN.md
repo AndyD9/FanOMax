@@ -282,7 +282,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [~] FanControl fermé (depuis le 2026-10-09) ; démarrage automatique à désactiver
 - [x] Identification : **Fan #1 = ventirad**, Fan #2 et #7 = boîtier. Écriture à 100 % et retour au BIOS vérifiés sur le vrai matériel
 - [ ] ~~Un seul canal de boîtier~~ : sauté (un ventilateur de boîtier seul agit à peine sur la température CPU)
-- [ ] Groupe CPU complet en pilotage (`etape-3-groupe-cpu.json`), observer 1 à 2 jours
+- [~] Groupe CPU complet en pilotage (`etape-3-groupe-cpu.json`) depuis le 2026-10-09 09:41 : 14 min de jeu à 69,3 °C / 40 % de ventilation, puis un pic à 84,9 °C (charge concentrée) → plancher de protection ajouté ; observer 1 à 2 jours
 - [ ] Puis le GPU
 - [ ] Test de stress : Cinebench 30 min + jeu 1 h, sans oscillation ni dépassement
 - [ ] Tests du failsafe : arrêt du service (retour au BIOS), reprise en douceur au redémarrage
@@ -328,6 +328,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-09 | Pause > 10 s (et > 5 intervalles) = veille : régulateurs réinitialisés, watchdog ignoré | Incident du réveil du 2026-10-08 (pas de temps de 83 298 s) |
 | 2026-10-09 | Pas de détection « valeur figée » sur le GPU | Capteurs entiers stables au repos (692 s mesurés) : fausses alertes |
 | 2026-10-09 | **Cible CPU : 69 °C** (`TargetTemperature` du groupe CPU dans `config.json`), profil Normal conservé pour le reste | Choix utilisateur après le bilan fantôme : Normal (67 °C) ventilait jusqu'à 76 % en charge contre 52 % avec FanControl ; 69 °C garde un niveau sonore proche de l'actuel |
+| 2026-10-09 | **Plancher de protection CPU** sur température lissée 2 s : 40 % à 74 °C, 70 % à 78 °C, 100 % à 82 °C (hors régime limité) | Pic réel à 84,9 °C au premier pilotage : le PI (lissage 10 s) réagit trop lentement à une vraie montée de 30 s |
 
 ---
 
