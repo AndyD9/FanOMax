@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Text;
 
-namespace FanOMax.Probe;
+namespace FanOMax.Core.Analysis;
 
 /// <summary>Lecture et écriture CSV minimales (séparateur virgule, nombres au format invariant).</summary>
-internal static class Csv
+public static class Csv
 {
     public static string Quote(string value) => "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 

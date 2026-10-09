@@ -257,6 +257,10 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [ ] Requêtes : plage temporelle, min/max/moyenne, temps passé au-dessus d'un seuil
 
 ### Phase 6 : interface (`FanOMax.App`, Avalonia)
+> Première version avancée le 2026-10-09, avant l'IPC : l'interface lit les fichiers du service (`shadow/*.csv` pour les courbes, `live.json` pour chaque ventilateur). Lancement : `.\dashboard`.
+
+- [x] Tableau de bord v1 : carte par groupe (température, cible, consigne, W, état), bilan de la fenêtre (moyenne, max, P95, temps au-dessus de la cible, course %/min, part de chaque état), courbes température / ventilation / puissance sur 5 min à 6 h avec zones d'état et curseur de lecture
+- [x] Panneau par ventilateur (tr/min, % appliqué, objectif, qui pilote) et toutes les températures (instantané `live.json`)
 - [ ] Icône dans la barre des tâches : état (OK / fantôme / failsafe), profil actif, ouvrir/quitter
 - [ ] Tableau de bord : températures, charge, W, RPM, % PWM, **FPS** en temps réel (ScottPlot)
 - [ ] Collecte des FPS (PresentMon) pour l'affichage, reprise de la sonde (déplacé depuis la phase 3)

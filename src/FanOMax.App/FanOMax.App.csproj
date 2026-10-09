@@ -27,6 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FanOMax.Contracts\FanOMax.Contracts.csproj" />
+    <!-- Lecture du journal du service (Analysis/ShadowLogTail), en attendant l'IPC de la phase 4. -->
+    <ProjectReference Include="..\FanOMax.Core\FanOMax.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using FanOMax.Core.Analysis;
 using FanOMax.Core.Sensors;
 using FanOMax.Hardware;
 

@@ -2,12 +2,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="FanOMax.App.App"
              xmlns:local="using:FanOMax.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+             <!-- Thème sombre fixe : les courbes ScottPlot (Views/PlotTheme.cs) utilisent les mêmes couleurs. -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
     </Application.DataTemplates>
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="WindowBrush" Color="#111318" />
+        <SolidColorBrush x:Key="CardBrush" Color="#1A1D24" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#2A2F3A" />
+        <SolidColorBrush x:Key="TextBrush" Color="#E6E8EB" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#8B93A1" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#3FA7FF" />
+        <SolidColorBrush x:Key="TemperatureBrush" Color="#FF8A5B" />
+        <SolidColorBrush x:Key="FanBrush" Color="#3FA7FF" />
+        <SolidColorBrush x:Key="PowerBrush" Color="#C08CFF" />
+    </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />

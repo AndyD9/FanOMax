@@ -25,6 +25,7 @@ public sealed partial class RegulationEngine : IDisposable
     private readonly ILogger _logger;
     private readonly Func<bool> _isFanControlRunning;
     private readonly ShadowLog? _shadowLog;
+    private readonly LiveStatusFile? _liveStatus;
     private readonly Func<DateTime> _clock;
 
     // Sorties actuellement pilotées par FanOMax. Ensemble immuable : le watchdog peut le lire depuis un autre thread.
@@ -35,6 +36,7 @@ public sealed partial class RegulationEngine : IDisposable
     private double _sinceFanControlCheck = double.MaxValue;
     private double _shadowLogRetryIn;
     private bool _fanControlRunning;
+    private bool _liveStatusFailing;
     private bool _disposed;
 
     public RegulationEngine(
@@ -43,12 +45,14 @@ public sealed partial class RegulationEngine : IDisposable
         ILogger logger,
         Func<bool> isFanControlRunning,
         ShadowLog? shadowLog = null,
-        Func<DateTime>? clock = null)
+        Func<DateTime>? clock = null,
+        LiveStatusFile? liveStatus = null)
     {
         _backend = backend ?? throw new ArgumentNullException(nameof(backend));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _isFanControlRunning = isFanControlRunning ?? throw new ArgumentNullException(nameof(isFanControlRunning));
         _shadowLog = shadowLog;
+        _liveStatus = liveStatus;
         _clock = clock ?? (() => DateTime.Now);
         Reconfigure(options);
     }
@@ -144,7 +148,35 @@ public sealed partial class RegulationEngine : IDisposable
 
         var tick = new EngineTick(_clock(), _options.Mode, writing, _fanControlRunning, results);
         WriteShadowLog(tick, dtSeconds);
+        WriteLiveStatus(tick, values);
         return tick;
+    }
+
+    /// <summary>
+    /// Instantané pour l'interface : comme le journal, son échec ne doit jamais interrompre la régulation.
+    /// Erreur journalisée une fois ; le fichier est réécrit à chaque cycle, donc retenté au suivant.
+    /// </summary>
+    private void WriteLiveStatus(EngineTick tick, float?[] values)
+    {
+        if (_liveStatus is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _liveStatus.Write(LiveStatusFile.Build(tick, _backend.Sensors, values, _groups));
+            _liveStatusFailing = false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!_liveStatusFailing)
+            {
+                LogLiveStatusFailed(_logger, ex);
+            }
+
+            _liveStatusFailing = true;
+        }
     }
 
     /// <summary>Vrai tant que le journal des décisions est en échec (écriture suspendue).</summary>
@@ -441,6 +473,9 @@ public sealed partial class RegulationEngine : IDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Journal des décisions en échec (la régulation continue) : nouvel essai dans {RetrySeconds} s")]
     private static partial void LogShadowLogFailed(ILogger logger, Exception exception, double retrySeconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Écriture de l'état pour l'interface (live.json) en échec (la régulation continue)")]
+    private static partial void LogLiveStatusFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Journal des décisions de nouveau écrit")]
     private static partial void LogShadowLogRestored(ILogger logger);

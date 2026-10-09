@@ -16,7 +16,6 @@ public sealed class ShadowLog : IDisposable
     private readonly int _retentionDays;
     private StreamWriter? _writer;
     private DateOnly _day;
-    private int _pending;
 
     public ShadowLog(string directory, int retentionDays)
     {
@@ -55,7 +54,6 @@ public sealed class ShadowLog : IDisposable
         }
 
         _writer = null;
-        _pending = 0;
     }
 
     private void WriteLines(EngineTick tick)
@@ -86,12 +84,8 @@ public sealed class ShadowLog : IDisposable
             _writer!.WriteLine(line);
         }
 
-        // Écriture par paquets : une écriture disque toutes les 10 lignes environ.
-        if (++_pending >= 10)
-        {
-            _writer!.Flush();
-            _pending = 0;
-        }
+        // Une écriture disque par cycle : l'interface suit le journal en direct (une par seconde reste négligeable).
+        _writer!.Flush();
     }
 
     public void Dispose() => CloseQuietly();

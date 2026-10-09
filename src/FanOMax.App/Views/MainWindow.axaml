@@ -1,22 +1,351 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:FanOMax.App.ViewModels"
+        xmlns:sp="using:ScottPlot.Avalonia"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="820"
         x:Class="FanOMax.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="FanOMax">
+        Title="FanOMax"
+        Width="1500" Height="900" MinWidth="1100" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBrush}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+
+        <!-- Pastilles d'état : vert = normal, ambre = attention, rouge = alerte. -->
+        <Style Selector="Border.pill">
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="Background" Value="#1F3A2B" />
+        </Style>
+        <Style Selector="Border.pill TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#6FD39A" />
+        </Style>
+        <!-- « idle » avant « alert » : un service arrêté s'affiche en rouge, pas en gris. -->
+        <Style Selector="Border.pill.idle">
+            <Setter Property="Background" Value="#262B35" />
+        </Style>
+        <Style Selector="Border.pill.idle TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+        <Style Selector="Border.pill.warn">
+            <Setter Property="Background" Value="#3D3118" />
+        </Style>
+        <Style Selector="Border.pill.warn TextBlock">
+            <Setter Property="Foreground" Value="#F5B83D" />
+        </Style>
+        <Style Selector="Border.pill.alert">
+            <Setter Property="Background" Value="#45202A" />
+        </Style>
+        <Style Selector="Border.pill.alert TextBlock">
+            <Setter Property="Foreground" Value="#FF6B81" />
+        </Style>
+
+        <!-- Cartes de groupe : un ListBox sans le fond de sélection Fluent, la carte s'entoure d'un liseré. -->
+        <Style Selector="ListBox.cards">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBox.cards ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+        <Style Selector="ListBox.cards ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBox.cards ListBoxItem:pointerover Border.card">
+            <Setter Property="BorderBrush" Value="#3A4150" />
+        </Style>
+        <Style Selector="ListBox.cards ListBoxItem:selected Border.card">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Choix de la fenêtre de temps : boutons segmentés. -->
+        <Style Selector="ListBox.segmented">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="3" />
+        </Style>
+        <Style Selector="ListBox.segmented ListBoxItem">
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+        <Style Selector="ListBox.segmented ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2A3140" />
+        </Style>
+        <Style Selector="ListBox.segmented ListBoxItem:selected">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+
+        <!-- Titres et légendes des graphiques (couleurs : Views/PlotTheme.cs). -->
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.legend">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Setter Property="Spacing" Value="14" />
+            <Setter Property="Margin" Value="18,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.legend > StackPanel">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Setter Property="Spacing" Value="6" />
+        </Style>
+        <Style Selector="StackPanel.legend TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.legend Line">
+            <Setter Property="StartPoint" Value="0,0" />
+            <Setter Property="EndPoint" Value="16,0" />
+            <Setter Property="StrokeThickness" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.legend Line.dashed">
+            <Setter Property="StrokeDashArray" Value="2,1.5" />
+        </Style>
+        <Style Selector="StackPanel.legend Line.dotted">
+            <Setter Property="StrokeDashArray" Value="0.6,1.2" />
+        </Style>
+        <Style Selector="StackPanel.legend Border.zone">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Barres des ventilateurs. -->
+        <Style Selector="ProgressBar.applied">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="MinHeight" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Foreground" Value="{StaticResource FanBrush}" />
+            <Setter Property="Background" Value="#262B35" />
+        </Style>
+        <Style Selector="ProgressBar.target">
+            <Setter Property="Height" Value="3" />
+            <Setter Property="MinHeight" Value="3" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Foreground" Value="#8CCBFF" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Window.Styles>
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid ColumnDefinitions="*,340" Margin="20,16,20,20">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,0,16,0">
 
+        <!-- En-tête : état du service et fenêtre de temps. -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <TextBlock Text="FanOMax" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                <Border Classes="pill"
+                        Classes.alert="{Binding IsStale}"
+                        Classes.idle="{Binding !IsPiloting}"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ModeText}" />
+                </Border>
+                <TextBlock Classes="muted" Text="{Binding FreshnessText}" VerticalAlignment="Center" />
+            </StackPanel>
+            <ListBox Grid.Column="2" Classes="segmented"
+                     ItemsSource="{Binding Windows}"
+                     SelectedItem="{Binding SelectedWindow}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="2" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:WindowOption">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <!-- Une carte par groupe : la carte sélectionnée choisit les courbes affichées. -->
+        <ListBox Grid.Row="1" Classes="cards" Margin="0,16,0,0"
+                 ItemsSource="{Binding Groups}"
+                 SelectedItem="{Binding SelectedGroup}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:GroupViewModel">
+                    <Border Classes="card" Width="290" Padding="16,12">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="1" Classes="pill"
+                                        Classes.warn="{Binding IsWarning}"
+                                        Classes.alert="{Binding IsAlert}">
+                                    <TextBlock Text="{Binding Status}" />
+                                </Border>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="{Binding Temperature}" FontSize="30" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TemperatureBrush}" />
+                                <TextBlock Classes="muted" Text="{Binding Target}" VerticalAlignment="Bottom" Margin="0,0,0,6" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="1.4*,*">
+                                <StackPanel>
+                                    <TextBlock Classes="muted" FontSize="12" Text="Ventilation" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Fan}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource FanBrush}" />
+                                        <TextBlock Classes="muted" FontSize="12" Text="{Binding FanDetail}" VerticalAlignment="Bottom" Margin="0,0,0,2" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Classes="muted" FontSize="12" Text="Puissance" />
+                                    <TextBlock Text="{Binding Power}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource PowerBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Bilan du groupe sélectionné sur la fenêtre affichée. -->
+        <ItemsControl Grid.Row="2" Margin="2,14,0,0" ItemsSource="{Binding Stats}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:StatItem">
+                    <StackPanel Margin="0,0,28,6">
+                        <TextBlock Classes="muted" FontSize="12" Text="{Binding Label}" />
+                        <TextBlock Text="{Binding Value}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Courbes : température, ventilation, puissance, sur le même axe de temps. -->
+        <Border Grid.Row="3" Classes="card" Margin="0,12,0,0" Padding="8,10,8,6">
+            <Grid RowDefinitions="Auto,Auto,2*,Auto,1.4*,Auto,1*">
+                <TextBlock x:Name="Readout" Margin="10,0,10,8" FontSize="12" Classes="muted"
+                           />
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="10,0,10,2">
+                    <TextBlock Classes="title" Text="Température (°C)" />
+                    <StackPanel Grid.Column="1" Classes="legend">
+                        <StackPanel><Line Classes="solid" Stroke="#FF8A5B" /><TextBlock Text="Mesurée" /></StackPanel>
+                        <StackPanel><Line Classes="solid" Stroke="#73FF8A5B" /><TextBlock Text="Lissée" /></StackPanel>
+                        <StackPanel><Line Classes="dashed" Stroke="#9AA4B2" /><TextBlock Text="Cible" /></StackPanel>
+                        <StackPanel><Border Classes="zone" Background="#66FF5A5A" /><TextBlock Text="Protection" /></StackPanel>
+                        <StackPanel><Border Classes="zone" Background="#4DF5B83D" /><TextBlock Text="Limite thermique" /></StackPanel>
+                        <StackPanel><Border Classes="zone" Background="#99FF2D55" /><TextBlock Text="Alerte / BIOS" /></StackPanel>
+                    </StackPanel>
+                </Grid>
+                <sp:AvaPlot Grid.Row="2" x:Name="TemperaturePlot" />
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="10,8,10,2">
+                    <TextBlock Classes="title" Text="Ventilation (%)" />
+                    <StackPanel Classes="legend">
+                        <StackPanel><Line Classes="solid" Stroke="#3FA7FF" /><TextBlock Text="Appliquée" /></StackPanel>
+                        <StackPanel><Line Classes="dashed" Stroke="#8CCBFF" /><TextBlock Text="Consigne" /></StackPanel>
+                        <StackPanel><Line Classes="dotted" Stroke="#6E7B8F" /><TextBlock Text="Anticipation (modèle)" /></StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <sp:AvaPlot Grid.Row="4" x:Name="FanPlot" />
+                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="10,8,10,2">
+                    <TextBlock Classes="title" Text="Puissance (W)" />
+                    <StackPanel Classes="legend">
+                        <StackPanel><Line Classes="solid" Stroke="#C08CFF" /><TextBlock Text="Mesurée" /></StackPanel>
+                        <StackPanel><Line Classes="solid" Stroke="#73C08CFF" /><TextBlock Text="Lissée" /></StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <sp:AvaPlot Grid.Row="6" x:Name="PowerPlot" />
+
+                <Border Grid.RowSpan="7" Background="{StaticResource CardBrush}" CornerRadius="10"
+                        IsVisible="{Binding !HasData}">
+                    <TextBlock Classes="muted" Text="{Binding EmptyText}" TextWrapping="Wrap" MaxWidth="560"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" />
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+
+    <!-- Panneau latéral : chaque ventilateur (vitesse, % appliqué, objectif) et toutes les températures (live.json). -->
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+            <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="title" FontSize="14" Text="Ventilateurs" />
+                    <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding LiveNotice}"
+                               IsVisible="{Binding LiveNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <ItemsControl ItemsSource="{Binding Fans}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FanViewModel">
+                                <StackPanel Spacing="3" Margin="0,4,0,10">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Rpm}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding Percent}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource FanBrush}" />
+                                        <TextBlock Grid.Column="1" Classes="muted" FontSize="12" Text="{Binding Target}"
+                                                   VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,0,3" />
+                                    </Grid>
+                                    <!-- Barre épaisse : % appliqué ; barre fine : objectif de FanOMax. -->
+                                    <ProgressBar Classes="applied" Value="{Binding PercentValue}" Minimum="0" Maximum="100" />
+                                    <ProgressBar Classes="target" Value="{Binding TargetValue}" Minimum="0" Maximum="100" IsVisible="{Binding HasTarget}" />
+                                    <TextBlock Classes="muted" FontSize="11" Text="{Binding Owner}" Margin="0,2,0,0" />
+                                    <TextBlock Classes="muted" FontSize="11" Text="{Binding Detail}" Opacity="0.7" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" FontSize="14" Text="Températures" />
+                    <ItemsControl ItemsSource="{Binding Temperatures}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TemperatureItem">
+                                <Grid ColumnDefinitions="84,*,Auto" Margin="0,2">
+                                    <TextBlock Classes="muted" FontSize="12" Text="{Binding Source}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
+                                    <TextBlock Grid.Column="1" FontSize="12" Text="{Binding Name}" Foreground="{StaticResource TextBrush}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" FontSize="13" FontWeight="SemiBold" Text="{Binding Value}"
+                                               Foreground="{StaticResource TemperatureBrush}" Margin="8,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+    </Grid>
 </Window>

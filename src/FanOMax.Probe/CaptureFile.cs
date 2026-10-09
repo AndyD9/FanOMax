@@ -1,3 +1,4 @@
+using FanOMax.Core.Analysis;
 using FanOMax.Core.Sensors;
 
 namespace FanOMax.Probe;

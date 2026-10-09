@@ -20,6 +20,8 @@ internal sealed class FakeBackend : IHardwareBackend
     public const string Fan5 = "/lpc/nct6796dr/0/control/4";
     public const string Fan7 = "/lpc/nct6796dr/0/control/6";
     public const string GpuFan = "/gpu-amd/0/control/0";
+    public const string Fan1Rpm = "/lpc/nct6796dr/0/fan/0";
+    public const string GpuFanRpm = "/gpu-amd/0/fan/0";
 
     private readonly Dictionary<string, float?> _values = new(StringComparer.Ordinal);
 
@@ -38,6 +40,8 @@ internal sealed class FakeBackend : IHardwareBackend
             new SensorDescriptor(Fan5, "Fan #5", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(Fan7, "Fan #7", "Nuvoton NCT6796D-R", SensorKind.Control),
             new SensorDescriptor(GpuFan, "GPU Fan", "AMD Radeon RX 6750 XT", SensorKind.Control),
+            new SensorDescriptor(Fan1Rpm, "Fan #1", "Nuvoton NCT6796D-R", SensorKind.Fan),
+            new SensorDescriptor(GpuFanRpm, "GPU Fan", "AMD Radeon RX 6750 XT", SensorKind.Fan),
         ];
 
         Set(CpuTemp, 66);
@@ -50,6 +54,8 @@ internal sealed class FakeBackend : IHardwareBackend
         }
 
         Set(GpuFan, 58);
+        Set(Fan1Rpm, 1718);
+        Set(GpuFanRpm, 2850);
     }
 
     public IReadOnlyList<SensorDescriptor> Sensors { get; }

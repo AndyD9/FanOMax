@@ -55,7 +55,9 @@ public sealed partial class RegulationService(
 
         var current = options.CurrentValue;
         using var shadowLog = new ShadowLog(FanOMaxPaths.ShadowDirectory, current.ShadowLog.RetentionDays);
-        using var engine = new RegulationEngine(backend, current, loggerFactory.CreateLogger<RegulationEngine>(), SystemChecks.IsFanControlRunning, shadowLog);
+        using var engine = new RegulationEngine(
+            backend, current, loggerFactory.CreateLogger<RegulationEngine>(), SystemChecks.IsFanControlRunning, shadowLog,
+            liveStatus: new LiveStatusFile(FanOMaxPaths.Root));
         using var reload = options.OnChange(o => _pendingOptions = o);
         using var watchdogStop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var watchdog = StartWatchdog(engine, watchdogStop.Token);

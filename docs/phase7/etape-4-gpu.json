@@ -1,0 +1,38 @@
+{
+  // FanOMax : ÉTAPE 4 : FanOMax PILOTE le groupe CPU (inchangé depuis l'étape 3) ET le ventilateur du GPU.
+  // GPU : point chaud (hot spot), cible 82 °C (profil Normal), 100 % au-delà de 105 °C.
+  // À vérifier : « appliqué » ≈ « consigne » pour le GPU (le pilote AMD ne doit pas reprendre la main),
+  // et, à l'arrêt du service, retour du ventilateur GPU au mode automatique du pilote.
+  // Le modèle GPU n'est calibré que jusqu'à 165 W (180–195 W en jeu) : le PI corrige l'écart.
+  // Retour arrière : etape-3-groupe-cpu.json (CPU seul) ou etape-0-fantome.json (plus rien n'est piloté).
+  "FanOMax": {
+    "Mode": "Active",
+    "Profile": "Normal",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        // Fan #1 (ventirad), Fan #2 et Fan #7 (boîtier)
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/6" ],
+        "TargetTemperature": 69,
+        "CriticalTemperature": 90
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        "Enabled": true,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ],
+        "TargetTemperature": 82,
+        "CriticalTemperature": 105
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}
