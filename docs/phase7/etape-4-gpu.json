@@ -1,5 +1,5 @@
 {
-  // FanOMax : ÉTAPE 4 : FanOMax PILOTE le groupe CPU (inchangé depuis l'étape 3) ET le ventilateur du GPU.
+  // FanOMax : ÉTAPE 4 : FanOMax PILOTE le groupe CPU (identique à l'étape 3) ET le ventilateur du GPU.
   // GPU : point chaud (hot spot), cible 82 °C (profil Normal), 100 % au-delà de 105 °C.
   // À vérifier : « appliqué » ≈ « consigne » pour le GPU (le pilote AMD ne doit pas reprendre la main),
   // et, à l'arrêt du service, retour du ventilateur GPU au mode automatique du pilote.
@@ -16,8 +16,9 @@
         "Enabled": true,
         "TemperatureSensor": "/amdcpu/0/temperature/2",
         "PowerSensor": "/amdcpu/0/power/0",
-        // Fan #1 (ventirad), Fan #2 et Fan #7 (boîtier)
-        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/6" ],
+        // Fan #1 ventirad · Fan #2 haut (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté) · Fan #7 arrière (extraction).
+        // Même % partout : 3 ventilateurs en admission contre 2 en extraction = pression positive (moins de poussière).
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
         "TargetTemperature": 69,
         "CriticalTemperature": 90
       },

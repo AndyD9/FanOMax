@@ -231,6 +231,13 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
 ```
 
+### 2026-10-09 : les 3 ventilateurs avant (hub) n'étaient pas pilotés
+- **Symptôme :** le tableau de bord ne montrait que 3 ventilateurs (ventirad, Fan #2, Fan #7) pour un boîtier qui en compte 5 en plus du ventirad (avant ×3 sur hub, arrière, haut).
+- **Contexte :** phase 7, étape 3 (groupe CPU en mode Active depuis 09:41).
+- **Cause racine :** le hub avant est branché sur **Fan #4**, un canal qui **ne remonte aucun régime** (0 RPM). L'identification du matin ne testait que les canaux à régime non nul (Fan #1, #2, #7) ; l'inventaire de la phase 1 classait les canaux 3 à 5 comme « probablement vides ». Le hub suivait donc la courbe du BIOS (≈ 46–55 %) pendant que FanOMax pilotait le reste. Sans danger : au repos, le BIOS ventilait même plus que FanOMax.
+- **Correctif :** identification complétée (11:42–11:49) : Fan #2 haut, Fan #7 arrière, Fan #4 hub avant, Fan #3 et #5 vides. `control/3` ajouté au groupe CPU (`etape-3-groupe-cpu.json`, `etape-4-gpu.json`) ; noms des canaux dans l'interface (`FanNames`).
+- **Prévention :** onglet « Tous les canaux » du tableau de bord (canaux sans régime visibles) ; l'identification teste tous les canaux pilotables. **Limite :** sans régime remonté, FanOMax ne peut pas détecter un ventilateur avant bloqué : contrôle visuel seulement.
+
 ### 2026-10-09 : pic à 84,9 °C au premier quart d'heure de pilotage
 - **Symptôme :** premier pilotage réel du groupe CPU (cible 69 °C, jeu). Après 14 min impeccables (69,3 °C de moyenne, 40 % de ventilation), le Tctl est monté de 69 à **84,9 °C** en 25 s (09:55:30 → 09:55:58), puis est retombé quand la charge a baissé.
 - **Journaux :** puissance stable (≈ 80 W, 72–93 W) ; ventilation 38 % → 52 % ; `filtered_temperature` 78 °C quand la mesure brute atteignait 85 °C ; état `Normal` tout du long.

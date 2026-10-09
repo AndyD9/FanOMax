@@ -1,6 +1,7 @@
 {
-  // FanOMax : ÉTAPE 3 : FanOMax PILOTE le groupe CPU (ventirad + ventilateurs de boîtier), cible 69 °C.
-  // Identification du 2026-10-09 : Fan #1 = ventirad ; Fan #2 et Fan #7 = boîtier (dont le hub).
+  // FanOMax : ÉTAPE 3 : FanOMax PILOTE le groupe CPU (ventirad + tous les ventilateurs de boîtier), cible 69 °C.
+  // Identification du 2026-10-09 (complétée à 11:49) : Fan #1 ventirad, Fan #2 haut, Fan #4 hub avant (3 ventilateurs),
+  // Fan #7 arrière ; Fan #3 et #5 vides.
   // Le GPU reste piloté par le pilote AMD. Retour arrière : etape-0-fantome.json.
   "FanOMax": {
     "Mode": "Active",
@@ -13,8 +14,9 @@
         "Enabled": true,
         "TemperatureSensor": "/amdcpu/0/temperature/2",
         "PowerSensor": "/amdcpu/0/power/0",
-        // Fan #1 (ventirad), Fan #2 et Fan #7 (boîtier)
-        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/6" ],
+        // Fan #1 ventirad · Fan #2 haut (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté) · Fan #7 arrière (extraction).
+        // Même % partout : 3 ventilateurs en admission contre 2 en extraction = pression positive (moins de poussière).
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
         "TargetTemperature": 69,
         "CriticalTemperature": 90
       },

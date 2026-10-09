@@ -39,13 +39,20 @@ public partial class FanViewModel(string controlId) : ViewModelBase
     [ObservableProperty]
     public partial bool IsPiloted { get; set; }
 
+    /// <summary>Canal sans régime détecté et non piloté (rien de branché, ou ventilateur sans fil de régime).</summary>
+    [ObservableProperty]
+    public partial bool IsEmpty { get; set; }
+
     public void Update(LiveFan fan)
     {
         ArgumentNullException.ThrowIfNull(fan);
         var culture = CultureInfo.CurrentCulture;
         Name = FanNames.Friendly(fan);
         Detail = fan.Name + " · " + fan.Hardware;
-        Rpm = fan.Rpm is { } rpm ? rpm.ToString("N0", culture) + " tr/min" : "pas de tachymètre";
+        IsEmpty = !FanNames.IsShown(fan);
+        Rpm = fan.Rpm is { } rpm
+            ? rpm > 0 ? rpm.ToString("N0", culture) + " tr/min" : "régime non remonté"
+            : "pas de tachymètre";
         Percent = fan.Percent is { } p ? p.ToString("0", culture) + " %" : "—";
         PercentValue = fan.Percent ?? 0;
         HasTarget = fan.TargetPercent.HasValue;
@@ -66,8 +73,9 @@ public static class FanNames
     private static readonly Dictionary<string, string> Known = new(StringComparer.Ordinal)
     {
         ["/lpc/nct6796dr/0/control/0"] = "Ventirad CPU",
-        ["/lpc/nct6796dr/0/control/1"] = "Boîtier (Fan #2)",
-        ["/lpc/nct6796dr/0/control/6"] = "Boîtier (Fan #7)",
+        ["/lpc/nct6796dr/0/control/1"] = "Haut · extraction",
+        ["/lpc/nct6796dr/0/control/3"] = "Avant · hub de 3 · admission",
+        ["/lpc/nct6796dr/0/control/6"] = "Arrière · extraction",
         ["/gpu-amd/0/control/0"] = "Carte graphique",
     };
 
@@ -78,13 +86,13 @@ public static class FanNames
     }
 
     /// <summary>
-    /// Sortie affichée : pilotée par un groupe, ou dont le tachymètre tourne. Les canaux vides
-    /// (Fan #3 à #6 sur cette carte : 0 tr/min) sont masqués.
+    /// Sortie affichée dans l'onglet « En service » : canal identifié, piloté par un groupe, ou dont le tachymètre tourne.
+    /// Le hub avant (Fan #4) ne remonte aucun régime : seule l'identification permet de l'afficher.
     /// </summary>
     public static bool IsShown(LiveFan fan)
     {
         ArgumentNullException.ThrowIfNull(fan);
-        return fan.Group is not null || fan.Rpm is > 0;
+        return Known.ContainsKey(fan.ControlId) || fan.Group is not null || fan.Rpm is > 0;
     }
 }
 

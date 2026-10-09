@@ -61,10 +61,15 @@ Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixe
 | Canal | Ventilateur | Courbe BIOS au repos |
 |---|---|---|
 | Fan #1 (`control/0`) | **Ventirad** (≈ 3 060 RPM max) | ≈ 49 % |
-| Fan #2 (`control/1`) | Boîtier (hub ou autre, non distingué) | ≈ 68 % |
-| Fan #7 (`control/6`) | Boîtier (hub ou autre, non distingué) | ≈ 30 % |
+| Fan #2 (`control/1`) | **Haut**, extraction (≈ 1 670 RPM max) | ≈ 68 % |
+| Fan #3 (`control/2`) | rien | — |
+| Fan #4 (`control/3`) | **Avant, hub de 3 ventilateurs**, admission. **Aucun régime remonté** (0 RPM affiché) | ≈ 46–55 % |
+| Fan #5 (`control/4`) | rien | — |
+| Fan #7 (`control/6`) | **Arrière**, extraction (≈ 1 500 RPM max) | ≈ 30 % |
 
-Écriture à 100 % et retour au BIOS vérifiés sur les trois canaux (journal du 2026-10-09, 09:21–09:22).
+Écriture à 100 % et retour au BIOS vérifiés sur Fan #1, #2, #7 (09:21–09:22), puis #2, #7, #3, #4, #5 (11:42–11:49), en observant le boîtier, avec le tableau de bord sur « Tous les canaux ».
+
+> La première identification (09:21) était incomplète : seuls les canaux qui remontent un régime avaient été testés. Le hub avant, sur Fan #4, est resté sur la courbe du BIOS pendant les premiers pilotages (TROUBLESHOOT.md §5). Depuis, `etape-3-groupe-cpu.json` pilote les 4 canaux au même % : 3 ventilateurs en admission contre 2 en extraction, soit une **pression positive** (l'air entre par les filtres de l'avant, la poussière n'entre pas par les fentes).
 
 ## Étapes suivantes
 

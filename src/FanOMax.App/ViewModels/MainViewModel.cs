@@ -32,6 +32,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<string, List<ShadowRecord>> _history = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _timer;
     private ShadowRecord? _last;
+    private LiveSnapshot? _lastLive;
     private bool _reading;
     private bool _updating;
 
@@ -80,6 +81,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string LiveNotice { get; set; } = "";
 
+    /// <summary>Onglets du panneau des ventilateurs : 0 = en service, 1 = tous les canaux (même vides).</summary>
+    public IReadOnlyList<string> FanFilters { get; } = ["En service", "Tous les canaux"];
+
+    [ObservableProperty]
+    public partial int FanFilterIndex { get; set; }
+
     [ObservableProperty]
     public partial GroupViewModel? SelectedGroup { get; set; }
 
@@ -122,6 +129,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     partial void OnSelectedGroupChanged(GroupViewModel? value) => Update();
 
     partial void OnSelectedWindowChanged(WindowOption value) => Update();
+
+    partial void OnFanFilterIndexChanged(int value) => UpdateLive(_lastLive);
 
     private async Task RefreshAsync()
     {
@@ -178,11 +187,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        _lastLive = live;
         var age = DateTime.Now - live.Timestamp;
         LiveNotice = age > StaleAfter ? "Valeurs figées depuis " + Duration(age) + " : service arrêté ?" : "";
 
-        var shown = live.Fans.Where(FanNames.IsShown)
-            .OrderBy(f => f.Group is null ? 1 : 0)
+        // En service : ventilateurs pilotés d'abord. Tous les canaux : ordre de la carte (Fan #1 → #7), GPU à la fin.
+        var showAll = FanFilterIndex == 1;
+        var shown = live.Fans.Where(f => showAll || FanNames.IsShown(f))
+            .OrderBy(f => !showAll && f.Group is null ? 1 : 0)
             .ThenBy(f => f.ControlId.StartsWith("/gpu-", StringComparison.Ordinal) ? 1 : 0)
             .ThenBy(f => f.ControlId, StringComparer.Ordinal)
             .ToList();

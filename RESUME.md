@@ -32,7 +32,8 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
 
 ### Situation actuelle de la machine
 - Service `FanOMax` **installé et en marche**, en **mode Active** sur le groupe CPU (config = `docs/phase7/etape-3-groupe-cpu.json`).
-- Groupe CPU : **Fan #1 = ventirad**, Fan #2 et Fan #7 = boîtier (hub), pilotés au même %. **Cible CPU 69 °C** (profil Normal = 67 °C, surchargé).
+- Groupe CPU : **Fan #1 = ventirad**, **Fan #2 = haut** (extraction), **Fan #4 = hub avant de 3 ventilateurs** (admission, aucun régime remonté), **Fan #7 = arrière** (extraction), tous au même % : pression positive (3 en admission contre 2 en extraction). Fan #3 et #5 vides. **Cible CPU 69 °C** (profil Normal = 67 °C, surchargé).
+- ⚠️ Fan #4 (hub avant) ajouté au groupe le 2026-10-09 vers 12:00 dans `etape-3-groupe-cpu.json` : **à appliquer** (copie de la config), puis vérifier à l'œil que les ventilateurs avant tournent à 25 %, puisqu'aucun régime n'est remonté.
 - **GPU : pas encore piloté** (groupe désactivé). C'est le pilote AMD qui gère, souvent à plus de 80 % pour un point chaud de 55–65 °C.
 - **FanControl fermé**. Son démarrage automatique est à désactiver si ce n'est pas fait.
 - Version installée le 2026-10-09 à 10:01, avec le **plancher de protection**. La réinstallation a validé en réel le retour au BIOS à l'arrêt (« Retour au BIOS de 3 sortie(s) ») et la reprise en mode Active.
@@ -107,7 +108,7 @@ scripts/                install-service.ps1, uninstall-service.ps1
 | Dynamique CPU | 51 % de la hausse en 3 s, T90 = 7 s : la température suit la puissance |
 | Cinebench, ventilateurs à 100 % | 77,5–79 °C (plafonné par la THM limit), score 3 384 |
 | Profils | Silence 70 °C / 50 % · Normal 67 °C / 75 % · Perf 65 °C / 100 % (cible CPU / ventilation en régime limité) ; GPU 85 / 82 / 78 °C |
-| Canaux PWM | `/lpc/nct6796dr/0/control/0` = Fan #1 (ventirad), `control/1` = Fan #2, `control/6` = Fan #7 ; `control/2–4` = pilotables sans RPM (a priori vides) |
+| Canaux PWM | `/lpc/nct6796dr/0/control/0` = Fan #1 (ventirad), `control/1` = Fan #2 haut, `control/3` = Fan #4 hub avant ×3 (sans RPM), `control/6` = Fan #7 arrière ; `control/2` et `control/4` vides |
 | Capteurs | CPU `/amdcpu/0/temperature/2` + `/amdcpu/0/power/0` ; GPU `/gpu-amd/0/temperature/7` + `/gpu-amd/0/power/3` |
 
 ## 7. Points d'attention
@@ -115,4 +116,5 @@ scripts/                install-service.ps1, uninstall-service.ps1
 - **Disque `C:` presque plein** (2,6 % libres le 2026-10-09) : il a déjà arrêté le service le 2026-10-08 (incident corrigé côté code, mais le disque reste à libérer).
 - **Hydra** doit rester actif avec le même profil : sinon le modèle CPU n'est plus valable (TROUBLESHOOT.md §4.16).
 - **Biais connu** : le simulateur est ≈ 3,4 °C trop froid au repos (rafales sur un ou deux cœurs), sans conséquence.
-- Journal des incidents (TROUBLESHOOT.md §5) : emballement du PI en boucle ouverte, disque plein, fausse alerte au réveil de la veille, faux « figé » GPU, pic à 84,9 °C.
+- Journal des incidents (TROUBLESHOOT.md §5) : emballement du PI en boucle ouverte, disque plein, fausse alerte au réveil de la veille, faux « figé » GPU, pic à 84,9 °C, hub avant non piloté.
+- **Hub avant sans régime remonté** : un ventilateur avant bloqué passerait inaperçu, contrôle visuel seulement.
