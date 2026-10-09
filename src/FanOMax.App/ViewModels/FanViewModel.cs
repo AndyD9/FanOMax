@@ -51,7 +51,7 @@ public partial class FanViewModel(string controlId) : ViewModelBase
         Detail = fan.Name + " · " + fan.Hardware;
         IsEmpty = !FanNames.IsShown(fan);
         Rpm = fan.Rpm is { } rpm
-            ? rpm > 0 ? rpm.ToString("N0", culture) + " tr/min" : "régime non remonté"
+            ? rpm > 0 ? rpm.ToString("N0", culture) + " tr/min" : "sans régime"
             : "pas de tachymètre";
         Percent = fan.Percent is { } p ? p.ToString("0", culture) + " %" : "—";
         PercentValue = fan.Percent ?? 0;
@@ -74,7 +74,7 @@ public static class FanNames
     {
         ["/lpc/nct6796dr/0/control/0"] = "Ventirad CPU",
         ["/lpc/nct6796dr/0/control/1"] = "Haut · extraction",
-        ["/lpc/nct6796dr/0/control/3"] = "Avant · hub de 3 · admission",
+        ["/lpc/nct6796dr/0/control/3"] = "Avant ×3 · admission",
         ["/lpc/nct6796dr/0/control/6"] = "Arrière · extraction",
         ["/gpu-amd/0/control/0"] = "Carte graphique",
     };

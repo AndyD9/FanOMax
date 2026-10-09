@@ -328,7 +328,7 @@
                             <DataTemplate x:DataType="vm:FanViewModel">
                                 <StackPanel Spacing="3" Margin="0,4,0,10" Classes.empty="{Binding IsEmpty}">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
                                         <TextBlock Grid.Column="1" Text="{Binding Rpm}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     </Grid>
                                     <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
