@@ -45,6 +45,8 @@ public sealed class FanRegulator
     private double _aboveLimitFor;
     private bool _thermalLimited;
     private double _lastFeedforward;
+    private double _elapsed;
+    private double? _primedPercent;
 
     public FanRegulator(RegulatorSettings settings)
     {
@@ -61,11 +63,28 @@ public sealed class FanRegulator
 
     public RegulatorSettings Settings => _settings;
 
+    /// <summary>Vrai pendant le préchauffage : la moyenne de puissance n'a pas encore une fenêtre complète.</summary>
+    public bool WarmingUp => _elapsed < _settings.PowerWindowSeconds;
+
+    /// <summary>
+    /// Démarrage en douceur, à appeler quand FanOMax prend la main sur des ventilateurs qui tournent déjà :
+    /// la sortie part de la ventilation actuelle et y reste pendant le préchauffage (moyenne de puissance
+    /// pas encore fiable), sauf si la température dépasse déjà la cible de plus de 3 °C.
+    /// </summary>
+    public void Prime(double currentPercent)
+    {
+        _primedPercent = Math.Clamp(currentPercent, _settings.MinPercent, _settings.MaxPercent);
+        _shaper.Force(_primedPercent.Value);
+        _elapsed = 0;
+    }
+
     /// <param name="dtSeconds">Durée écoulée depuis le cycle précédent.</param>
     /// <param name="temperature">Température brute (°C), null si indisponible.</param>
     /// <param name="power">Puissance brute (W), null si indisponible.</param>
     public RegulatorDecision Update(double dtSeconds, double? temperature, double? power)
     {
+        var warmingUp = WarmingUp;
+        _elapsed += dtSeconds;
         var temp = _temperatureGuard.Update(temperature, dtSeconds);
         var watts = _powerGuard.Update(power, dtSeconds);
 
@@ -97,10 +116,19 @@ public sealed class FanRegulator
             _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
             mode = RegulatorMode.ThermalLimited;
         }
+        else if (warmingUp && _primedPercent is { } primed && filteredTemp <= _settings.TargetTemperature + 3)
+        {
+            // Démarrage en douceur : on garde la ventilation trouvée, PI gelé, le temps que la moyenne de puissance soit fiable.
+            _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
+            target = primed;
+            mode = RegulatorMode.Normal;
+        }
         else
         {
             target = _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent);
-            var unreachable = target >= _settings.MaxPercent && filteredTemp > _settings.TargetTemperature + 1;
+
+            // Pendant le préchauffage, l'anticipation repose sur trop peu de valeurs pour conclure à une cible inatteignable.
+            var unreachable = !warmingUp && target >= _settings.MaxPercent && filteredTemp > _settings.TargetTemperature + 1;
             mode = unreachable ? RegulatorMode.TargetUnreachable : RegulatorMode.Normal;
         }
 

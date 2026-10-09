@@ -71,6 +71,12 @@ public static class FanOMaxOptionsValidator
             {
                 errors.Add($"Groupe {label} : la cible doit être inférieure à la température critique.");
             }
+
+            // Plancher à 20 % : un ventilateur à l'arrêt ne refroidit plus rien.
+            if (group.FixedPercent is < 20 or > 100)
+            {
+                errors.Add($"Groupe {label} : FixedPercent doit être entre 20 et 100 %.");
+            }
         }
 
         return errors;

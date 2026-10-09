@@ -1,0 +1,34 @@
+{
+  // FanOMax : ÉTAPE 0 (et RETOUR ARRIÈRE) : mode fantôme, cible CPU 69 °C.
+  // FanOMax ne touche à aucun ventilateur : BIOS / pilote AMD (ou FanControl) gardent la main.
+  "FanOMax": {
+    "Mode": "Shadow",
+    "Profile": "Normal",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/6" ],
+        // Choix utilisateur du 2026-10-09 (profil Normal = 67 °C)
+        "TargetTemperature": 69,
+        "CriticalTemperature": 90
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        "Enabled": true,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ],
+        "TargetTemperature": null,
+        "CriticalTemperature": 105
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}

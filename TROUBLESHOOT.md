@@ -202,6 +202,19 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Ordre de grandeur :** environ 15 à 20 Mo par jour (2 groupes, 1 ligne par seconde). Conservation par défaut : 7 jours.
 - **Correctif :** baisser `ShadowLog.RetentionDays`, ou `ShadowLog.Enabled: false` une fois la phase de validation terminée.
 
+### 4.23 En mode Active, un ventilateur ne change pas de vitesse — 🔮
+- **Vérifier d'abord :** le journal indique `[pilotage]` (sinon §4.21) et l'état du groupe (`Fixed`, `Normal`… et non `Bios`).
+- **Comparer** `decision_percent` et `applied_percent` dans le journal des décisions : si FanOMax écrit (colonne `written` = 1) mais que `applied_percent` ne suit pas, la puce ou le pilote ignore l'écriture.
+- **Causes possibles :**
+  1. Prise réglée en mode DC/PWM incompatible avec le ventilateur dans l'UEFI : essayer l'autre mode (`H/W Monitor`).
+  2. Hub alimenté en SATA qui ne relaie que le signal PWM : vérifier que les ventilateurs du hub sont bien des modèles PWM (4 broches).
+  3. GPU : le pilote AMD (Adrenalin, réglage de ventilation manuel) peut reprendre la main. Remettre la ventilation GPU en automatique dans Adrenalin.
+- **Retour arrière immédiat :** `etape-0-fantome.json` (docs/phase7-bascule.md).
+
+### 4.24 Pendant l'identification, aucun ventilateur n'accélère — 🔮
+- **Canal vide ou mal identifié :** le régime (RPM) du canal doit monter vers son maximum en quelques secondes (`.\probe inventory` ou le journal). S'il monte sans ventilateur visible qui accélère, le ventilateur est peut-être déjà au maximum, ou caché (ventilateur de l'alimentation : non piloté par la carte mère).
+- **Rien ne bouge, même le RPM :** voir §4.23.
+
 ---
 
 ## 5. Journal des incidents

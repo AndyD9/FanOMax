@@ -60,6 +60,12 @@ public sealed class GroupOptions
     /// <summary>Au-delà, 100 % quel que soit le mode ; null = 90 °C (CPU) ou 105 °C (GPU).</summary>
     public double? CriticalTemperature { get; set; }
 
+    /// <summary>
+    /// Ventilation fixe (%) au lieu de la régulation, pour identifier les ventilateurs ou tester (null = régulation).
+    /// La règle de température critique reste prioritaire.
+    /// </summary>
+    public double? FixedPercent { get; set; }
+
     public double EffectiveCriticalTemperature => CriticalTemperature ?? (Kind == GroupKind.Cpu ? 90 : 105);
 }
 

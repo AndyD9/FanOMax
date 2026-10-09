@@ -207,6 +207,12 @@ public sealed partial class RegulationEngine : IDisposable
     /// </summary>
     public void HandBackAll(string reason)
     {
+        // À la prochaine prise de main, chaque groupe repartira en douceur de la ventilation du BIOS.
+        foreach (var group in _groups)
+        {
+            group.IsWriting = false;
+        }
+
         var written = Interlocked.Exchange(ref _written, _written.Clear());
         if (written.Count == 0)
         {
@@ -248,12 +254,27 @@ public sealed partial class RegulationEngine : IDisposable
         var appliedValues = group.ControlSensorIndices.Select(i => Read(values, i)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
         double? applied = appliedValues.Count > 0 ? appliedValues.Average() : null;
 
+        // Prise de main (passage en Active, reprise après le BIOS, après une erreur ou le départ de FanControl) :
+        // démarrage en douceur depuis la ventilation actuellement appliquée.
+        if (writing && !group.IsWriting && applied is { } current)
+        {
+            group.Regulator.Prime(current);
+        }
+
         var regulatorTemperature = EstimateTemperature(group, temperature, applied, dt, writing);
         var decision = group.Regulator.Update(dt, regulatorTemperature, power);
         group.LastDecisionPercent = decision.Percent;
 
         var percent = decision.Percent;
         var status = decision.Mode.ToString();
+
+        // Ventilation fixe (identification, tests) : le régulateur continue de tourner, mais sa décision n'est pas appliquée.
+        if (group.Options.FixedPercent is { } fixedPercent && decision.Mode != RegulatorMode.SensorLost)
+        {
+            percent = fixedPercent;
+            status = "Fixed";
+        }
+
         if (temperature >= group.Options.EffectiveCriticalTemperature)
         {
             percent = 100;
@@ -302,6 +323,8 @@ public sealed partial class RegulationEngine : IDisposable
                 written = true;
             }
         }
+
+        group.IsWriting = written;
 
         if (status != group.LastStatus)
         {

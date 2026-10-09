@@ -240,9 +240,9 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] Correctif après le premier démarrage : température estimée en mode fantôme (le PI s'emballait en boucle ouverte)
 - [x] Correctifs après 2 jours de mode fantôme : réveil après veille (watchdog et pas de temps), journal en échec sans arrêt de la régulation (disque plein), pas de détection « figée » sur le GPU (capteurs entiers)
 - [x] Raccourci `probe.cmd` à la racine du projet ; `shadow-report` ignore les journaux de l'ancien format
-- [ ] Avant la phase 7 : démarrage en douceur (partir de la ventilation appliquée, pas de « cible inatteignable » pendant le remplissage de la moyenne de puissance)
+- [x] Démarrage en douceur (fait en phase 7)
 - [ ] ~~Collecte des FPS par le service~~ : déplacée en phase 6 (utile seulement à l'affichage)
-- [ ] **Installation par l'utilisateur et plusieurs jours en mode fantôme**
+- [x] **Installation par l'utilisateur et mode fantôme** : 7,8 h de données sur 2 jours, bilan fait ; 3 incidents corrigés
 - **Livrable :** service qui tourne en mode fantôme pendant plusieurs jours sans erreur
 
 ### Phase 4 : IPC
@@ -268,13 +268,24 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [ ] Indicateur clair quand le BIOS a repris la main, et pourquoi
 
 ### Phase 7 : bascule depuis FanControl
-- [ ] Contrôle des courbes Smart Fan dans l'UEFI
-- [ ] Arrêter FanControl et désactiver son démarrage automatique
-- [ ] Écriture activée sur **un seul ventilateur de boîtier**, observer 24 h
-- [ ] Puis le ventilateur CPU, puis les autres ventilateurs de boîtier
-- [ ] Puis le GPU (si validé en phase 1)
+> Avancée avant les phases 4 à 6 (décision du 2026-10-09). Procédure : [docs/phase7-bascule.md](docs/phase7-bascule.md)
+
+**Code (fait)**
+- [x] Démarrage en douceur : à chaque prise de main, départ de la ventilation appliquée, maintenue pendant le préchauffage (25 s) sauf si T > cible + 3 °C ; pas de « cible inatteignable » pendant le préchauffage
+- [x] `FixedPercent` par groupe (identification, tests), température critique prioritaire, plancher 20 %
+- [x] Fichiers de configuration par étape (`docs/phase7/*.json`), validés par un test automatique
+- [x] 116 tests au total
+
+**Bascule (utilisateur)**
+- [ ] Mise à jour du service, configuration de départ (fantôme, cible CPU 69 °C)
+- [ ] Contrôle des courbes Smart Fan dans l'UEFI, relevé des prises (CPU_FAN1, CHA_FAN…)
+- [ ] FanControl fermé et démarrage automatique désactivé (fermé depuis le 2026-10-09)
+- [ ] Identification des canaux Fan #1, #2, #7 (ventilation fixe à 100 %, un canal à la fois)
+- [ ] Écriture activée sur **un seul canal de boîtier** (hub), observer 24 h
+- [ ] Puis tout le groupe CPU (hub + ventirad)
+- [ ] Puis le GPU
 - [ ] Test de stress : Cinebench 30 min + jeu 1 h, sans oscillation ni dépassement
-- [ ] Tests du failsafe : arrêt du service, débranchement simulé d'un capteur, processus tué
+- [ ] Tests du failsafe : arrêt du service (retour au BIOS), reprise en douceur au redémarrage
 
 ### Phase 8 : finitions
 - [ ] Démarrage automatique de l'interface à l'ouverture de session
@@ -316,6 +327,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-09 | Le journal des décisions ne peut jamais interrompre la régulation | Incident disque plein du 2026-10-08 : le service s'était arrêté |
 | 2026-10-09 | Pause > 10 s (et > 5 intervalles) = veille : régulateurs réinitialisés, watchdog ignoré | Incident du réveil du 2026-10-08 (pas de temps de 83 298 s) |
 | 2026-10-09 | Pas de détection « valeur figée » sur le GPU | Capteurs entiers stables au repos (692 s mesurés) : fausses alertes |
+| 2026-10-09 | **Cible CPU : 69 °C** (`TargetTemperature` du groupe CPU dans `config.json`), profil Normal conservé pour le reste | Choix utilisateur après le bilan fantôme : Normal (67 °C) ventilait jusqu'à 76 % en charge contre 52 % avec FanControl ; 69 °C garde un niveau sonore proche de l'actuel |
 
 ---
 

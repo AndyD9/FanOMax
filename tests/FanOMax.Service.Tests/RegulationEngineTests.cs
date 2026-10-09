@@ -118,6 +118,65 @@ public class RegulationEngineTests
     }
 
     [Fact]
+    public void Active_TakesOverSmoothly_FromTheAppliedLevel()
+    {
+        var backend = new FakeBackend();
+        var engine = Engine(backend, Options(OperatingMode.Active));
+
+        engine.Tick(1);
+
+        // Première écriture = ventilation trouvée (BIOS ou FanControl) : pas d'à-coup à la prise de main.
+        Assert.All(backend.Writes.Where(w => w.Id != GpuFan), w => Assert.Equal(48, w.Percent));
+        Assert.Equal(58, backend.Writes.Single(w => w.Id == GpuFan).Percent);
+    }
+
+    [Fact]
+    public void Active_AfterHandBack_TakesOverAgainFromTheBiosLevel()
+    {
+        var backend = new FakeBackend();
+        var engine = Engine(backend, Options(OperatingMode.Active));
+        for (var i = 0; i < 60; i++)
+        {
+            engine.Tick(1);
+        }
+
+        // Erreur : retour au BIOS, qui remet ses propres valeurs.
+        engine.HandBackAll("test");
+        foreach (var id in new[] { Fan1, Fan2, Fan7 })
+        {
+            backend.Set(id, 70);
+        }
+
+        backend.Writes.Clear();
+        engine.Tick(1);
+
+        Assert.All(backend.Writes.Where(w => w.Id != GpuFan), w => Assert.Equal(70, w.Percent));
+    }
+
+    [Fact]
+    public void FixedPercent_IsWritten_ButCriticalTemperatureStillWins()
+    {
+        var backend = new FakeBackend();
+        var options = Options(OperatingMode.Active);
+        options.Groups[0].Controls = [Fan7];
+        options.Groups[0].FixedPercent = 30;
+        options.Groups.RemoveAt(1);
+        var engine = Engine(backend, options);
+
+        var normal = engine.Tick(1);
+        Assert.Equal("Fixed", normal.Groups[0].Status);
+        Assert.Equal((Fan7, 30.0), backend.Writes.Single());
+
+        // Seule la sortie testée est pilotée : les autres restent au BIOS.
+        Assert.DoesNotContain(backend.Writes, w => w.Id is Fan1 or Fan2);
+
+        backend.Set(CpuTemp, 92);
+        var critical = engine.Tick(1);
+        Assert.Equal("Critical", critical.Groups[0].Status);
+        Assert.Equal(100, backend.Writes[^1].Percent);
+    }
+
+    [Fact]
     public void Active_RefusesToWrite_WhileFanControlIsRunning()
     {
         var backend = new FakeBackend();

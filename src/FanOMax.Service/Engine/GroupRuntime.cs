@@ -39,6 +39,9 @@ internal sealed class GroupRuntime
     /// <summary>Vrai quand le groupe a été rendu au BIOS après une perte de capteur.</summary>
     public bool HandedBack { get; set; }
 
+    /// <summary>Vrai si FanOMax a écrit sur les sorties du groupe au cycle précédent (sinon : prise de main à venir).</summary>
+    public bool IsWriting { get; set; }
+
     /// <summary>Durée de valeurs valides depuis la perte de capteur (reprise de la main).</summary>
     public double RecoveredFor { get; set; }
 

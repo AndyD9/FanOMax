@@ -71,6 +71,19 @@ public class ConfigurationTests
         Assert.NotEmpty(FanOMaxOptionsValidator.Validate(options));
     }
 
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(20, true)]
+    [InlineData(100, true)]
+    [InlineData(120, false)]
+    public void Validate_FixedPercentMustKeepTheFanSpinning(double percent, bool valid)
+    {
+        var options = Valid();
+        options.Groups[0].FixedPercent = percent;
+
+        Assert.Equal(valid, FanOMaxOptionsValidator.Validate(options).Count == 0);
+    }
+
     [Fact]
     public void Validate_IgnoresDisabledGroups()
     {
@@ -101,6 +114,31 @@ public class ConfigurationTests
         var gpu = Assert.Single(options.Groups, g => g.Name == "GPU");
         Assert.Equal(GpuHotSpot, gpu.TemperatureSensor);
         Assert.Equal([GpuFan], gpu.Controls);
+    }
+
+    /// <summary>Fichiers de configuration fournis pour la bascule (docs/phase7) : tous valides et résolubles.</summary>
+    [Fact]
+    public void Phase7ConfigFiles_AreValid_AndMatchTheHardware()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "FanOMax.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        Assert.NotNull(root);
+        var files = Directory.GetFiles(Path.Combine(root.FullName, "docs", "phase7"), "*.json");
+        Assert.NotEmpty(files);
+
+        foreach (var file in files)
+        {
+            var options = Bind(File.ReadAllText(file));
+            Assert.True(FanOMaxOptionsValidator.Validate(options).Count == 0, $"{Path.GetFileName(file)} : {string.Join(" ; ", FanOMaxOptionsValidator.Validate(options))}");
+
+            using var engine = new Engine.RegulationEngine(new FakeBackend(), options, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, () => false);
+            Assert.True(engine.ConfigurationErrors.Count == 0, $"{Path.GetFileName(file)} : {string.Join(" ; ", engine.ConfigurationErrors)}");
+            Assert.Equal(options.Groups.Count(g => g.Enabled), engine.GroupNames.Count);
+        }
     }
 
     [Fact]
