@@ -1,0 +1,40 @@
+{
+  // FanOMax : ÉTAPE 3b : comme l'étape 3, mais plus silencieuse en jeu : cible 73 °C, profil Silence.
+  // Mesuré le 2026-10-10 (1 h de jeu, ~85 W) avec la cible 69 °C : ventilation moyenne 52 %, pointes à 80–94 %,
+  // tous les ventilateurs du boîtier suivant le CPU. Le 5800X reste loin de sa limite (THM 80 °C, critique 90 °C).
+  // Profil Silence : en régime limité thermiquement (≥ 77 °C pendant 10 s), 50 % au lieu de 75 %.
+  // Le plancher de protection (74 °C → 40 %, 78 °C → 70 %, 82 °C → 100 %) reste actif dans tous les profils.
+  // Retour à l'étape 3 : etape-3-groupe-cpu.json. Retour arrière complet : etape-0-fantome.json.
+  "FanOMax": {
+    "Mode": "Active",
+    "Profile": "Silence",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        // Fan #1 ventirad · Fan #2 haut, 2 ventilateurs en hub (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté)
+        // · Fan #7 arrière (extraction).
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
+        // Pression positive : extracteurs à 75 % de la consigne (voir etape-3-groupe-cpu.json).
+        "ControlScales": { "/lpc/nct6796dr/0/control/1": 0.75, "/lpc/nct6796dr/0/control/6": 0.75 },
+        "TargetTemperature": 73,
+        "CriticalTemperature": 90
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        // Le pilote AMD garde la main sur le GPU.
+        "Enabled": false,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ]
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}
