@@ -292,8 +292,8 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [ ] Tests du failsafe : arrêt du service (retour au BIOS), reprise en douceur au redémarrage
 
 ### Phase 8 : finitions
-- [ ] Démarrage automatique de l'interface à l'ouverture de session
-- [ ] Installeur (script PowerShell ou Inno Setup)
+- [x] Démarrage automatique de l'interface à l'ouverture de session, fenêtre réduite (`HKCU\...\Run`, argument `--minimized`) : 2026-10-11
+- [~] Installeur : scripts PowerShell `install-app.ps1` / `uninstall-app.ps1` (par utilisateur, sans admin, dans `%LOCALAPPDATA%\Programs\FanOMax\App`, raccourci du menu Démarrer) en plus de `install-service.ps1` ; Inno Setup reste à décider
 - [ ] README d'utilisation
 
 ---
