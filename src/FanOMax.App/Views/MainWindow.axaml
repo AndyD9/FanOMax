@@ -304,9 +304,88 @@
         </Border>
     </Grid>
 
-    <!-- Panneau latéral : chaque ventilateur (vitesse, % appliqué, objectif) et toutes les températures (live.json). -->
+    <!-- Panneau latéral (live.json) : processeur (fréquences, tensions), chaque ventilateur (vitesse, % appliqué, objectif)
+         et toutes les températures. -->
     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="12">
+            <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" FontSize="14" Text="Processeur" />
+                    <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding ProcessorNotice}"
+                               IsVisible="{Binding ProcessorNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <ItemsControl ItemsSource="{Binding ProcessorSummary}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StatItem">
+                                <StackPanel Width="146" Margin="0,0,8,6">
+                                    <TextBlock Classes="muted" FontSize="12" Text="{Binding Label}" />
+                                    <TextBlock Text="{Binding Value}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- Détail par cœur : fréquence annoncée, effective (repos compris) et tension demandée (VID). -->
+                    <Grid ColumnDefinitions="*,74,74,62" Margin="0,2,0,0"
+                          IsVisible="{Binding HasProcessorCores}">
+                        <TextBlock Classes="muted" FontSize="11" Text="Cœur" />
+                        <TextBlock Grid.Column="1" Classes="muted" FontSize="11" Text="Fréquence" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Classes="muted" FontSize="11" Text="Effective" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="3" Classes="muted" FontSize="11" Text="VID" HorizontalAlignment="Right" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding ProcessorCores}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CoreItem">
+                                <Grid ColumnDefinitions="*,74,74,62" Margin="0,1">
+                                    <TextBlock FontSize="12" Text="{Binding Name}" Foreground="{StaticResource TextBrush}" />
+                                    <TextBlock Grid.Column="1" FontSize="12" FontWeight="SemiBold" Text="{Binding Clock}"
+                                               Foreground="{StaticResource TextBrush}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="2" FontSize="12" Classes="muted" Text="{Binding Effective}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="3" FontSize="12" Classes="muted" Text="{Binding Voltage}" HorizontalAlignment="Right" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Stabilité (journal Windows) : erreurs WHEA et redémarrages imprévus, avec les mesures de FanOMax à ce moment.
+                 Témoin du réglage du Curve Optimizer et du PBO. -->
+            <Border Classes="card" Padding="16,12">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="title" FontSize="14" Text="Stabilité" />
+                        <Border Grid.Column="1" Classes="pill"
+                                Classes.idle="{Binding Stability.IsIdle}"
+                                Classes.warn="{Binding Stability.IsWarning}"
+                                Classes.alert="{Binding Stability.IsAlert}">
+                            <TextBlock Text="{Binding Stability.Status}" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding Stability.Summary}" />
+                    <ItemsControl ItemsSource="{Binding Stability.Incidents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:IncidentItem">
+                                <StackPanel Spacing="1" Margin="0,4,0,4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource TextBrush}" Margin="0,0,8,0" />
+                                        <TextBlock Grid.Column="1" FontSize="12" Classes="muted" Text="{Binding When}" />
+                                    </Grid>
+                                    <TextBlock FontSize="11" Classes="muted" Text="{Binding Detail}" TextWrapping="Wrap" />
+                                    <TextBlock FontSize="11" Classes="muted" Text="{Binding Context}" TextWrapping="Wrap" Opacity="0.7" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding Stability.Hint}"
+                               IsVisible="{Binding Stability.Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+            </Border>
+
             <Border Classes="card" Padding="16,12">
                 <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">

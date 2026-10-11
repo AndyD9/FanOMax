@@ -22,6 +22,9 @@ internal sealed class FakeBackend : IHardwareBackend
     public const string GpuFan = "/gpu-amd/0/control/0";
     public const string Fan1Rpm = "/lpc/nct6796dr/0/fan/0";
     public const string GpuFanRpm = "/gpu-amd/0/fan/0";
+    public const string CpuCore1Clock = "/amdcpu/0/clock/3";
+    public const string CpuCoreVoltage = "/amdcpu/0/voltage/0";
+    public const string GpuCoreClock = "/gpu-amd/0/clock/0";
 
     private readonly Dictionary<string, float?> _values = new(StringComparer.Ordinal);
 
@@ -42,6 +45,9 @@ internal sealed class FakeBackend : IHardwareBackend
             new SensorDescriptor(GpuFan, "GPU Fan", "AMD Radeon RX 6750 XT", SensorKind.Control),
             new SensorDescriptor(Fan1Rpm, "Fan #1", "Nuvoton NCT6796D-R", SensorKind.Fan),
             new SensorDescriptor(GpuFanRpm, "GPU Fan", "AMD Radeon RX 6750 XT", SensorKind.Fan),
+            new SensorDescriptor(CpuCore1Clock, "Core #1", "AMD Ryzen 7 5800X", SensorKind.Clock),
+            new SensorDescriptor(CpuCoreVoltage, "Core (SVI2 TFN)", "AMD Ryzen 7 5800X", SensorKind.Voltage),
+            new SensorDescriptor(GpuCoreClock, "GPU Core", "AMD Radeon RX 6750 XT", SensorKind.Clock),
         ];
 
         Set(CpuTemp, 66);
@@ -56,6 +62,9 @@ internal sealed class FakeBackend : IHardwareBackend
         Set(GpuFan, 58);
         Set(Fan1Rpm, 1718);
         Set(GpuFanRpm, 2850);
+        Set(CpuCore1Clock, 4816);
+        Set(CpuCoreVoltage, 1.325f);
+        Set(GpuCoreClock, 2600);
     }
 
     public IReadOnlyList<SensorDescriptor> Sensors { get; }

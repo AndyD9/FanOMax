@@ -8,13 +8,17 @@ namespace FanOMax.Contracts;
 /// </summary>
 /// <param name="Mode">« Active » ou « Shadow ».</param>
 /// <param name="Writing">Vrai si FanOMax pilote réellement les ventilateurs.</param>
+/// <param name="Clocks">Fréquences du processeur (MHz) ; <c>null</c> si le service est antérieur à leur ajout.</param>
+/// <param name="Voltages">Tensions du processeur (V) ; <c>null</c> si le service est antérieur à leur ajout.</param>
 public sealed record LiveSnapshot(
     DateTime Timestamp,
     string Mode,
     bool Writing,
     IReadOnlyList<LiveGroup> Groups,
     IReadOnlyList<LiveFan> Fans,
-    IReadOnlyList<LiveTemperature> Temperatures)
+    IReadOnlyList<LiveTemperature> Temperatures,
+    IReadOnlyList<LiveReading>? Clocks = null,
+    IReadOnlyList<LiveReading>? Voltages = null)
 {
     public const string FileName = "live.json";
 
@@ -49,3 +53,6 @@ public sealed record LiveGroup(string Name, double Target, double? Temperature, 
 public sealed record LiveFan(string ControlId, string Name, string Hardware, double? Percent, double? Rpm, string? Group, double? TargetPercent, bool Written);
 
 public sealed record LiveTemperature(string Id, string Name, string Hardware, double Value);
+
+/// <summary>Une mesure brute (fréquence en MHz, tension en V), sous le nom donné par LibreHardwareMonitor.</summary>
+public sealed record LiveReading(string Id, string Name, string Hardware, double Value);

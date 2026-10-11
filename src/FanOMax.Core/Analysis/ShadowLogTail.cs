@@ -54,9 +54,13 @@ public sealed class ShadowLogTail
     }
 
     private List<((DateOnly Day, int Part) Key, string Path)> Files() =>
-        Directory.EnumerateFiles(_directory, "shadow-*.csv")
+        AllFiles(_directory).Where(f => f.Key.Day >= _firstDay).ToList();
+
+    /// <summary>Journaux du dossier dans l'ordre chronologique (jour, puis partie).</summary>
+    internal static List<((DateOnly Day, int Part) Key, string Path)> AllFiles(string directory) =>
+        Directory.EnumerateFiles(directory, "shadow-*.csv")
             .Select(path => (Key: ParseName(path), Path: path))
-            .Where(f => f.Key is { } k && k.Day >= _firstDay)
+            .Where(f => f.Key is not null)
             .Select(f => (f.Key!.Value, f.Path))
             .OrderBy(f => f.Value)
             .ToList();

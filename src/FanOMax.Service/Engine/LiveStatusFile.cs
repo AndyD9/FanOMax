@@ -6,7 +6,7 @@ namespace FanOMax.Service.Engine;
 
 /// <summary>
 /// Instantané de chaque cycle pour l'interface (<c>live.json</c>) : groupes, chaque ventilateur (%, tr/min, consigne),
-/// toutes les températures. Écriture atomique (fichier temporaire puis remplacement) : l'interface ne lit jamais
+/// toutes les températures, fréquences et tensions du processeur. Écriture atomique (fichier temporaire puis remplacement) : l'interface ne lit jamais
 /// un fichier à moitié écrit.
 /// </summary>
 public sealed class LiveStatusFile
@@ -58,6 +58,8 @@ public sealed class LiveStatusFile
 
         var fans = new List<LiveFan>();
         var temperatures = new List<LiveTemperature>();
+        var clocks = new List<LiveReading>();
+        var voltages = new List<LiveReading>();
         for (var i = 0; i < sensors.Count; i++)
         {
             var sensor = sensors[i];
@@ -75,11 +77,26 @@ public sealed class LiveStatusFile
             {
                 temperatures.Add(new LiveTemperature(sensor.Id, sensor.Name, sensor.HardwareName, temperature));
             }
+            else if (IsProcessor(sensor.Id) && Value(i) is { } reading)
+            {
+                // Processeur seulement : les tensions de la carte mère et les fréquences du GPU alourdiraient le fichier.
+                if (sensor.Kind == SensorKind.Clock)
+                {
+                    clocks.Add(new LiveReading(sensor.Id, sensor.Name, sensor.HardwareName, reading));
+                }
+                else if (sensor.Kind == SensorKind.Voltage)
+                {
+                    voltages.Add(new LiveReading(sensor.Id, sensor.Name, sensor.HardwareName, reading));
+                }
+            }
         }
 
         var liveGroups = tick.Groups
             .Select(g => new LiveGroup(g.Name, g.Target, g.Temperature, g.Power, g.Percent, g.Status, g.Written))
             .ToList();
-        return new LiveSnapshot(tick.Timestamp, tick.Mode.ToString(), tick.WritingAllowed, liveGroups, fans, temperatures);
+        return new LiveSnapshot(tick.Timestamp, tick.Mode.ToString(), tick.WritingAllowed, liveGroups, fans, temperatures, clocks, voltages);
     }
+
+    private static bool IsProcessor(string id) =>
+        id.StartsWith("/amdcpu/", StringComparison.Ordinal) || id.StartsWith("/intelcpu/", StringComparison.Ordinal);
 }

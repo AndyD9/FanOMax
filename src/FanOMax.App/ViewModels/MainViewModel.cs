@@ -51,6 +51,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         LogDirectory = directory;
         _livePath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(directory)) ?? directory, LiveSnapshot.FileName);
         _tail = new ShadowLogTail(directory, DateOnly.FromDateTime(DateTime.Now - History));
+        Stability = new StabilityViewModel(directory, () => ProcessorCores.Count);
         SelectedWindow = Windows[1];
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => _ = RefreshAsync());
         _timer.Start();
@@ -70,12 +71,29 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new("6 h", TimeSpan.FromHours(6)),
     ];
 
+    /// <summary>Erreurs matérielles et plantages (journal Windows), relus toutes les 30 s.</summary>
+    public StabilityViewModel Stability { get; }
+
     public ObservableCollection<GroupViewModel> Groups { get; } = [];
 
     public ObservableCollection<FanViewModel> Fans { get; } = [];
 
     [ObservableProperty]
     public partial IReadOnlyList<TemperatureItem> Temperatures { get; set; } = [];
+
+    /// <summary>Fréquences et tensions du processeur (live.json) : résumé, puis détail par cœur.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<StatItem> ProcessorSummary { get; set; } = [];
+
+    [ObservableProperty]
+    public partial IReadOnlyList<CoreItem> ProcessorCores { get; set; } = [];
+
+    [ObservableProperty]
+    public partial bool HasProcessorCores { get; set; }
+
+    /// <summary>Message du panneau du processeur (service pas encore mis à jour), vide si tout va bien.</summary>
+    [ObservableProperty]
+    public partial string ProcessorNotice { get; set; } = "";
 
     /// <summary>Message du panneau des ventilateurs (instantané absent ou figé), vide si tout va bien.</summary>
     [ObservableProperty]
@@ -123,6 +141,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _timer.Stop();
+        Stability.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -224,6 +243,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             .OrderBy(t => t.Rank)
             .ThenBy(t => t.Source, StringComparer.Ordinal)
             .ToList();
+
+        // Service antérieur à l'ajout des fréquences et tensions : les deux listes manquent dans live.json.
+        var clocks = live.Clocks ?? [];
+        var voltages = live.Voltages ?? [];
+        ProcessorSummary = ProcessorInfo.Summary(clocks, voltages);
+        ProcessorCores = ProcessorInfo.Cores(clocks, voltages);
+        HasProcessorCores = ProcessorCores.Count > 0;
+        ProcessorNotice = live.Clocks is null
+            ? "Fréquences et tensions disponibles après la mise à jour du service (scripts\\install-service.ps1)."
+            : "";
     }
 
     private void Merge(IReadOnlyList<ShadowRecord> records)

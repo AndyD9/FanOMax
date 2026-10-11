@@ -91,6 +91,33 @@ public sealed class LiveStatusTests : IDisposable
     }
 
     [Fact]
+    public void ProcessorClocksAndVoltages_AreListed_OtherHardwareIsLeftOut()
+    {
+        var snapshot = RunAndRead(new FakeBackend(), OperatingMode.Shadow, 1);
+
+        var clock = Assert.Single(snapshot.Clocks!);
+        Assert.Equal(CpuCore1Clock, clock.Id);
+        Assert.Equal("Core #1", clock.Name);
+        Assert.Equal(4816, clock.Value);
+
+        var voltage = Assert.Single(snapshot.Voltages!);
+        Assert.Equal(CpuCoreVoltage, voltage.Id);
+        Assert.Equal(1.325, voltage.Value, 3);
+    }
+
+    [Fact]
+    public void FromJson_SnapshotOfAnOlderService_HasNoClocks()
+    {
+        const string json = """{ "Timestamp": "2026-10-10T00:55:17", "Mode": "Shadow", "Writing": false, "Groups": [], "Fans": [], "Temperatures": [] }""";
+
+        var snapshot = LiveSnapshot.FromJson(json);
+
+        Assert.NotNull(snapshot);
+        Assert.Null(snapshot.Clocks);
+        Assert.Null(snapshot.Voltages);
+    }
+
+    [Fact]
     public void WriteFailure_DoesNotStopTheRegulation()
     {
         // Le dossier disparaît : l'écriture échoue à chaque cycle, mais le moteur continue de réguler.
