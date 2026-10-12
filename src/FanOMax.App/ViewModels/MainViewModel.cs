@@ -61,6 +61,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     /// <summary>Les courbes sont à redessiner (nouvelles données, autre groupe ou autre fenêtre).</summary>
     public event EventHandler? ChartsInvalidated;
 
+    /// <summary>Nouvelle lecture du journal (chaque seconde) : état du service et des groupes à jour (zone de notification).</summary>
+    public event EventHandler? Refreshed;
+
     public string LogDirectory { get; }
 
     public IReadOnlyList<WindowOption> Windows { get; } =
@@ -125,6 +128,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial bool IsStale { get; set; }
+
+    /// <summary>Service en marche en mode fantôme (il calcule sans écrire), par opposition à une écriture bloquée.</summary>
+    [ObservableProperty]
+    public partial bool IsShadow { get; set; }
 
     [ObservableProperty]
     public partial bool HasData { get; set; }
@@ -301,6 +308,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         ChartsInvalidated?.Invoke(this, EventArgs.Empty);
+        Refreshed?.Invoke(this, EventArgs.Empty);
     }
 
     private void UpdateHeader()
@@ -312,6 +320,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             ModeText = "Aucune donnée";
             FreshnessText = "";
             IsPiloting = false;
+            IsShadow = false;
             IsStale = true;
             if (!EmptyText.StartsWith("Journal illisible", StringComparison.Ordinal))
             {
@@ -324,6 +333,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var age = Now - _last.Time;
         IsStale = age > StaleAfter;
         IsPiloting = !IsStale && _last.Writing;
+        IsShadow = !IsStale && !_last.Writing && _last.Mode != "Active";
         ModeText = IsStale ? "Service arrêté ?"
             : _last.Writing ? "Pilotage actif"
             : _last.Mode == "Active" ? "Écriture bloquée (FanControl ouvert ?)"

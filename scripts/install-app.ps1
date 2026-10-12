@@ -6,7 +6,7 @@
     - Ferme l'interface si elle tourne (ses fichiers seraient verrouillés).
     - Publie FanOMax.App dans "%LOCALAPPDATA%\Programs\FanOMax\App".
     - Crée un raccourci « FanOMax » dans le menu Démarrer.
-    - Inscrit le lancement à l'ouverture de session (HKCU\...\Run), fenêtre réduite dans la barre des tâches.
+    - Inscrit le lancement à l'ouverture de session (HKCU\...\Run), directement dans la zone de notification.
     - Relance l'interface.
 
     Sans droits administrateur : l'interface ne fait que lire les fichiers du service (C:\ProgramData\FanOMax)
@@ -55,8 +55,8 @@ if ($NoAutostart) {
     Write-Host "Démarrage automatique : désactivé."
 } else {
     Set-ItemProperty -Path $runKey -Name $runName -Value "`"$exe`" --minimized"
-    Write-Host "Démarrage automatique : à l'ouverture de session, fenêtre réduite."
+    Write-Host "Démarrage automatique : à l'ouverture de session, dans la zone de notification."
 }
 
-Write-Host "Lancement de l'interface..."
+Write-Host "Lancement de l'interface (icône dans la zone de notification ; un clic ouvre le tableau de bord)..."
 Start-Process $exe -WorkingDirectory $InstallDir

@@ -45,8 +45,8 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
   - ventilation moyenne 52 → **41 %**, P90 67 → **51 %**, maximum 94 → **69 %**, temps au-dessus de 60 % : 20 → **1 %** ;
   - température moyenne 69 → 73 °C, maximum 74 → 78,3 °C (jamais 80 °C, régime limité jamais déclenché) ;
   - le plancher de protection (74 °C → 40 %) bascule souvent Normal ↔ Protection autour de la cible (193 fois), mais n'ajoute pas 1 % : simple bruit dans le journal.
-- **Démarrage rapide de Windows désactivé** (`HiberbootEnabled` = 0, 2026-10-11), voir l'incident ci-dessous.
-- **Interface installée** dans `%LOCALAPPDATA%\Programs\FanOMax\App` (raccourci du menu Démarrer), lancée à l'ouverture de session, fenêtre réduite.
+- **Démarrage rapide de Windows actif** : désactivé le 2026-10-11, puis **réactivé à la demande de l'utilisateur** (`HiberbootEnabled` = 1, vu le 2026-10-12). Des « Arrêts non terminés » peuvent donc revenir, voir l'incident ci-dessous.
+- **Interface installée** dans `%LOCALAPPDATA%\Programs\FanOMax\App` (raccourci du menu Démarrer), lancée à l'ouverture de session **dans la zone de notification** (2026-10-12) : icône colorée selon l'état, infobulle avec température et ventilation, clic = tableau de bord. Fermer la fenêtre ne ferme pas l'interface (menu de l'icône → « Quitter l'interface »).
 - Avant le 16:04, le service tournait en mode Shadow avec la configuration générée automatiquement. Le hub avant (Fan #4) y manquait, faute de régime remonté.
 - **Copier une configuration** : terminal **administrateur**. En cmd : `copy /Y docs\phase7\<fichier>.json C:\ProgramData\FanOMax\config.json` ; en PowerShell : `Copy-Item … -Force`. Un terminal non administrateur échoue sans rien changer.
 - Disque `C:` : **767 Go libres** (le problème de disque plein est réglé).
@@ -56,8 +56,7 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
 - Deux Kernel-Power 41 (redémarrages à 09:06 le 10/10 et 10:43 le 11/10), dernières mesures de FanOMax à 06:17:59 et 00:01:53 (68 °C, ~50 W, juste après la fin du jeu).
 - Même signature les deux fois : **pas d'écran bleu** (`BugcheckCode` 0), **`SleepInProgress` = 6** (un arrêt était en cours), **Kernel-Boot 29 « échec du démarrage rapide » (0xC0000411)** 2–3 s avant, aucune erreur WHEA, aucun dump.
 - **L'utilisateur a confirmé avoir éteint le PC lui-même** le 11/10 vers minuit : Windows n'a pas terminé l'arrêt avec le démarrage rapide (Hyper-V/VBS actifs). Ni le Curve Optimizer, ni la chauffe, ni FanOMax.
-- Démarrage rapide désactivé. La carte « Stabilité » classe désormais cette signature en « Arrêt non terminé » (compté, sans alerte).
-- **À vérifier** après le prochain arrêt : plus de Kernel-Power 41 ni de Kernel-Boot 29.
+- La carte « Stabilité » classe désormais cette signature en « Arrêt non terminé » (compté, sans alerte). Le démarrage rapide, un temps désactivé, a été réactivé par l'utilisateur : ces arrêts ratés peuvent revenir, sans conséquence.
 
 ### Résultats du premier pilotage réel (avant réinstallation, 2026-10-09, 09:41–09:56, jeu)
 - 69,3 °C de moyenne pour une cible de 69 °C, **40 % de ventilation** contre environ 49 % avec le BIOS, écritures 863/863.
@@ -119,7 +118,9 @@ src/FanOMax.Probe       Sonde en ligne de commande
 src/FanOMax.App         Interface Avalonia : MainViewModel (relit les fichiers chaque seconde), GroupViewModel,
                         FanViewModel (+ FanNames : noms des canaux), ProcessorInfo (panneau « Processeur »),
                         StabilityViewModel + Diagnostics/SystemEventLog (carte « Stabilité », journal Windows
-                        relu toutes les 30 s), Views/MainWindow (ScottPlot), PlotTheme ; `--minimized` = fenêtre réduite
+                        relu toutes les 30 s), Views/MainWindow (ScottPlot), PlotTheme ; Tray/ (TrayController :
+                        icône et menu de la zone de notification, TrayIconRenderer : icônes dessinées au lancement,
+                        SingleInstance, Autostart) ; `--minimized` = démarrage sans fenêtre
 tests/                  FanOMax.Core.Tests (112), FanOMax.Service.Tests (62) : 174 tests, tous verts (2026-10-11)
 docs/phase7/*.json      Configurations par étape de la bascule, validées par un test
 scripts/                install-service.ps1, uninstall-service.ps1 (admin) ; install-app.ps1, uninstall-app.ps1 (utilisateur)
@@ -155,7 +156,7 @@ scripts/                install-service.ps1, uninstall-service.ps1 (admin) ; ins
 
 - **Réglages CPU (Ryzen Master)** : le modèle CPU n'est valable qu'avec le Curve Optimizer ci-dessus **et** PPT 142 W / EDC 168 A / TDC 114 A / THM limit 80 °C. Ouvrir les limites PBO, c'est quelques % de plus en charge lourde seulement (rien en jeu), pour une température qui peut monter jusqu'à 90 °C. Si les réglages changent, refaire les mesures et recalibrer (TROUBLESHOOT.md §4.16, écrit pour Hydra mais valable pour Ryzen Master).
 - **Cœurs à surveiller** : C1 (−29) et C2 (−28) sont presque au plancher, et C2 est le 2e meilleur cœur. Une erreur WHEA 19 sur l'un d'eux dans la carte « Stabilité » → le remonter de 3 à 5 crans.
-- **Arrêts ratés des 10 et 11/10** (§2) : expliqués (démarrage rapide, désactivé). Un vrai « Redémarrage imprévu » dans la carte « Stabilité » serait, lui, à creuser : elle donne l'heure et la charge.
+- **Arrêts ratés des 10 et 11/10** (§2) : expliqués (démarrage rapide, réactivé depuis, donc ils peuvent revenir). Un vrai « Redémarrage imprévu » dans la carte « Stabilité » serait, lui, à creuser : elle donne l'heure et la charge.
 - **Biais connu** : le simulateur est ≈ 3,4 °C trop froid au repos (rafales sur un ou deux cœurs), sans conséquence.
 - Journal des incidents (TROUBLESHOOT.md §5) : emballement du PI en boucle ouverte, disque plein, fausse alerte au réveil de la veille, faux « figé » GPU, pic à 84,9 °C, hub avant non piloté.
 - **Hub avant sans régime remonté** : un ventilateur avant bloqué passerait inaperçu, contrôle visuel seulement. C'est aussi pour ça que la configuration automatique l'a oublié.

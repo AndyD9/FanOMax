@@ -261,7 +261,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 
 - [x] Tableau de bord v1 : carte par groupe (température, cible, consigne, W, état), bilan de la fenêtre (moyenne, max, P95, temps au-dessus de la cible, course %/min, part de chaque état), courbes température / ventilation / puissance sur 5 min à 6 h avec zones d'état et curseur de lecture
 - [x] Panneau par ventilateur (tr/min, % appliqué, objectif, qui pilote) et toutes les températures (instantané `live.json`)
-- [ ] Icône dans la barre des tâches : état (OK / fantôme / failsafe), profil actif, ouvrir/quitter
+- [~] Icône dans la zone de notification (2026-10-12) : couleur selon l'état (vert pilotage, gris fantôme, ambre écriture bloquée ou incident de stabilité, rouge service arrêté / capteur perdu / critique / BIOS), infobulle avec température, cible et ventilation par groupe, clic = tableau de bord, menu (ouvrir, démarrer avec Windows, quitter l'interface). Fenêtre fermée = l'interface reste dans la zone ; une seule instance par session. **Reste : profil actif** (absent de `live.json`, nécessite une mise à jour du service)
 - [ ] Tableau de bord : températures, charge, W, RPM, % PWM, **FPS** en temps réel (ScottPlot)
 - [ ] Collecte des FPS (PresentMon) pour l'affichage, reprise de la sonde (déplacé depuis la phase 3)
 - [ ] **Mini-widget** toujours au premier plan, déplaçable et semi-transparent : temp. et charge CPU/GPU, FPS
@@ -292,7 +292,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [ ] Tests du failsafe : arrêt du service (retour au BIOS), reprise en douceur au redémarrage
 
 ### Phase 8 : finitions
-- [x] Démarrage automatique de l'interface à l'ouverture de session, fenêtre réduite (`HKCU\...\Run`, argument `--minimized`) : 2026-10-11
+- [x] Démarrage automatique de l'interface à l'ouverture de session (`HKCU\...\Run`, argument `--minimized`) : 2026-10-11, directement dans la zone de notification depuis le 2026-10-12
 - [~] Installeur : scripts PowerShell `install-app.ps1` / `uninstall-app.ps1` (par utilisateur, sans admin, dans `%LOCALAPPDATA%\Programs\FanOMax\App`, raccourci du menu Démarrer) en plus de `install-service.ps1` ; Inno Setup reste à décider
 - [ ] README d'utilisation
 

@@ -50,7 +50,13 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _viewModel?.Dispose();
+        // Le modèle appartient à l'application (zone de notification) : il continue sans la fenêtre.
+        if (_viewModel is not null)
+        {
+            _viewModel.ChartsInvalidated -= OnChartsInvalidated;
+            _viewModel = null;
+        }
+
         base.OnClosed(e);
     }
 
