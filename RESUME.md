@@ -57,6 +57,7 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
 - Même signature les deux fois : **pas d'écran bleu** (`BugcheckCode` 0), **`SleepInProgress` = 6** (un arrêt était en cours), **Kernel-Boot 29 « échec du démarrage rapide » (0xC0000411)** 2–3 s avant, aucune erreur WHEA, aucun dump.
 - **L'utilisateur a confirmé avoir éteint le PC lui-même** le 11/10 vers minuit : Windows n'a pas terminé l'arrêt avec le démarrage rapide (Hyper-V/VBS actifs). Ni le Curve Optimizer, ni la chauffe, ni FanOMax.
 - La carte « Stabilité » classe désormais cette signature en « Arrêt non terminé » (compté, sans alerte). Le démarrage rapide, un temps désactivé, a été réactivé par l'utilisateur : ces arrêts ratés peuvent revenir, sans conséquence.
+- 2026-10-12 : pendant ces arrêts, les ventilateurs restaient sur la dernière consigne de FanOMax (le service n'est pas arrêté). Depuis, le service rend la main au BIOS dès que Windows annonce la suspension (TROUBLESHOOT.md §5).
 
 ### Résultats du premier pilotage réel (avant réinstallation, 2026-10-09, 09:41–09:56, jeu)
 - 69,3 °C de moyenne pour une cible de 69 °C, **40 % de ventilation** contre environ 49 % avec le BIOS, écritures 863/863.
@@ -137,6 +138,7 @@ scripts/                install-service.ps1, uninstall-service.ps1 (admin) ; ins
 - aucune écriture tant que FanControl tourne ;
 - capteur perdu → BIOS puis reprise après 30 s ; au-delà de 90 °C (CPU) ou 105 °C (GPU) → 100 % ;
 - watchdog (boucle bloquée plus de 5 s → BIOS) ; veille détectée (pas de fausse alerte) ; un échec du journal n'arrête jamais la régulation ;
+- veille, hibernation ou arrêt avec démarrage rapide → BIOS avant la suspension, reprise en douceur au réveil ;
 - démarrage en douceur (part de la ventilation appliquée, la garde 25 s) ; plancher de protection CPU.
 
 ## 6. Données de référence

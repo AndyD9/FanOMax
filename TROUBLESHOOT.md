@@ -231,6 +231,14 @@ Statut : 🔮 anticipé (pas encore rencontré) · 🐛 rencontré · ✅ corrig
 - **Prévention :** test ajouté, garde-fou, entrée ajoutée en §4 ?
 ```
 
+### 2026-10-12 : ventilateurs figés sur la consigne de FanOMax pendant un arrêt avec démarrage rapide
+- **Symptôme :** après « Arrêter », l'écran s'éteint mais les ventilateurs continuent de tourner ; l'utilisateur coupe au bouton (Kernel-Power 41 + Kernel-Boot 29 au démarrage suivant).
+- **Contexte :** mode Active, Hyper-V/VBS actifs, démarrage rapide actif. Les « Redémarrer » se terminent tous ; ce sont les « Arrêter » qui ratent (10/10, 11/10 à 00:02 et vers 13:53).
+- **Journaux :** au redémarrage, `Application is shutting down…` puis `Retour au BIOS de 4 sortie(s) PWM : arrêt du service`. Lors de l'arrêt raté du 11/10, la dernière ligne est une mesure (13:52:54, 25 %) : le service n'a pas été arrêté.
+- **Cause racine :** avec le démarrage rapide, « Arrêter » met le cœur du système en veille prolongée **sans arrêter les services**. FanOMax ne réagissait qu'à l'arrêt du service et au réveil (`IsSuspendGap`) : pendant une veille, une hibernation ou un tel arrêt, les sorties restaient sur sa dernière consigne, sans régulation. Le blocage de l'arrêt lui-même vient de Windows (veille prolongée avec l'hyperviseur), pas de FanOMax.
+- **Correctif :** `PowerNotifications` (abonnement `PowerRegisterSuspendResumeNotification`) : à l'annonce de la suspension, `RegulationEngine.Pause` rend au BIOS les sorties pilotées et bloque toute écriture ; Windows attend la fin du rappel avant de suspendre. Au réveil, `Resume`, puis démarrage en douceur. Un cycle en cours est attendu au plus 1 s ; sans notification de réveil, la pause prend fin à la détection de la pause par la boucle ou après 120 s de fonctionnement.
+- **Prévention :** tests `Pause_HandsBackToBios_AndStopsWritingUntilResume`, `Pause_WithoutResumeNotification_EndsAfterTimeout`, `Pause_WhileACycleIsStuck_StillHandsBackAfterTheWait`, `PowerNotifications_RegisterAndUnregisterWithWindows`. **À vérifier** après la prochaine veille ou le prochain arrêt : `Pause de la régulation` puis `Retour au BIOS … mise en veille ou arrêt du PC` dans le journal.
+
 ### 2026-10-09 : les 3 ventilateurs avant (hub) n'étaient pas pilotés
 - **Symptôme :** le tableau de bord ne montrait que 3 ventilateurs (ventirad, Fan #2, Fan #7) pour un boîtier qui en compte 5 en plus du ventirad (avant ×3 sur hub, arrière, haut).
 - **Contexte :** phase 7, étape 3 (groupe CPU en mode Active depuis 09:41).

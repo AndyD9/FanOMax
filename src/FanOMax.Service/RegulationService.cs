@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using FanOMax.Hardware;
@@ -59,6 +60,7 @@ public sealed partial class RegulationService(
             backend, current, loggerFactory.CreateLogger<RegulationEngine>(), SystemChecks.IsFanControlRunning, shadowLog,
             liveStatus: new LiveStatusFile(FanOMaxPaths.Root));
         using var reload = options.OnChange(o => _pendingOptions = o);
+        using var power = RegisterPowerNotifications(engine);
         using var watchdogStop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var watchdog = StartWatchdog(engine, watchdogStop.Token);
 
@@ -91,6 +93,25 @@ public sealed partial class RegulationService(
         }
     }
 
+    /// <summary>
+    /// Veille, hibernation, arrêt avec démarrage rapide : retour au BIOS avant la suspension, reprise au réveil.
+    /// Sans abonnement, la régulation fonctionne quand même (seul ce retour au BIOS manque).
+    /// </summary>
+    private PowerNotifications? RegisterPowerNotifications(RegulationEngine engine)
+    {
+        try
+        {
+            return PowerNotifications.Register(
+                onSuspend: () => engine.Pause("mise en veille ou arrêt du PC (démarrage rapide)"),
+                onResume: () => engine.Resume("réveil du PC"));
+        }
+        catch (Win32Exception ex)
+        {
+            LogPowerNotificationsFailed(logger, ex);
+            return null;
+        }
+    }
+
     private async Task RunLoopAsync(RegulationEngine engine, CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(engine.Options.IntervalSeconds);
@@ -110,6 +131,7 @@ public sealed partial class RegulationService(
                 if (LoopTiming.IsSuspendGap(dt, interval.TotalSeconds))
                 {
                     Interlocked.Exchange(ref _lastHeartbeat, Stopwatch.GetTimestamp());
+                    engine.Resume("pause du système détectée par la boucle"); // Si la notification de réveil a manqué.
                     engine.ResetRegulators(string.Create(CultureInfo.InvariantCulture, $"reprise après une pause de {dt:0} s (mise en veille ?)"));
                     dt = interval.TotalSeconds;
                 }
@@ -227,6 +249,9 @@ public sealed partial class RegulationService(
 
     [LoggerMessage(Level = LogLevel.Critical, Message = "Impossible d'ouvrir LibreHardwareMonitor : le service s'arrête.")]
     private static partial void LogBackendFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Notifications de mise en veille indisponibles : les ventilateurs ne seront pas rendus au BIOS avant une veille.")]
+    private static partial void LogPowerNotificationsFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Configuration par défaut créée : {Path} (mode fantôme).")]
     private static partial void LogDefaultConfigCreated(ILogger logger, string path);

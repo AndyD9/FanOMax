@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.Json;
 using FanOMax.Core.Control;
 using FanOMax.Hardware;
@@ -21,6 +22,15 @@ public sealed partial class RegulationEngine : IDisposable
     private const double FanControlCheckSeconds = 10;
     private const double ShadowLogRetrySeconds = 60;
 
+    /// <summary>Attente maximale de la fin d'un cycle en cours avant de rendre la main au BIOS pour une pause.</summary>
+    public static readonly TimeSpan PauseWait = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Pause sans reprise signalée par Windows (veille annulée sans notification) : au-delà de ce temps de fonctionnement,
+    /// FanOMax reprend la main. Une vraie veille ne compte pas : aucun cycle ne tourne pendant qu'elle dure.
+    /// </summary>
+    public const double PauseTimeoutSeconds = 120;
+
     private readonly IHardwareBackend _backend;
     private readonly ILogger _logger;
     private readonly Func<bool> _isFanControlRunning;
@@ -30,6 +40,11 @@ public sealed partial class RegulationEngine : IDisposable
 
     // Sorties actuellement pilotées par FanOMax. Ensemble immuable : le watchdog peut le lire depuis un autre thread.
     private ImmutableHashSet<string> _written = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
+
+    // Un cycle et une pause ne se chevauchent pas : sinon un cycle en cours pourrait réécrire une sortie juste rendue au BIOS.
+    private readonly Lock _cycleLock = new();
+    private volatile bool _paused;
+    private double _pausedFor;
     private List<GroupRuntime> _groups = [];
     private FanOMaxOptions _options = new();
     private string? _serializedOptions;
@@ -132,24 +147,75 @@ public sealed partial class RegulationEngine : IDisposable
         return true;
     }
 
+    /// <summary>Vrai entre l'annonce d'une mise en veille (ou d'un arrêt avec démarrage rapide) et la reprise.</summary>
+    public bool Paused => _paused;
+
     public EngineTick Tick(double dtSeconds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _backend.Update();
-        var values = _backend.ReadAll();
-        UpdateFanControlState(dtSeconds);
-
-        var writing = _options.Mode == OperatingMode.Active && !_fanControlRunning;
-        var results = new List<GroupTick>(_groups.Count);
-        foreach (var group in _groups)
+        lock (_cycleLock)
         {
-            results.Add(TickGroup(group, values, dtSeconds, writing));
+            _backend.Update();
+            var values = _backend.ReadAll();
+            UpdateFanControlState(dtSeconds);
+
+            if (_paused)
+            {
+                _pausedFor += dtSeconds;
+                if (_pausedFor >= PauseTimeoutSeconds)
+                {
+                    Resume(string.Create(CultureInfo.InvariantCulture, $"aucune reprise signalée par Windows après {_pausedFor:0} s"));
+                }
+            }
+
+            var writing = _options.Mode == OperatingMode.Active && !_fanControlRunning && !_paused;
+            var results = new List<GroupTick>(_groups.Count);
+            foreach (var group in _groups)
+            {
+                results.Add(TickGroup(group, values, dtSeconds, writing));
+            }
+
+            var tick = new EngineTick(_clock(), _options.Mode, writing, _fanControlRunning, results);
+            WriteShadowLog(tick, dtSeconds);
+            WriteLiveStatus(tick, values);
+            return tick;
+        }
+    }
+
+    /// <summary>
+    /// Mise en veille, hibernation ou arrêt avec démarrage rapide (le service n'est alors pas arrêté) : rend au BIOS
+    /// les sorties pilotées et n'écrit plus jusqu'à <see cref="Resume"/>. Appelé depuis la notification de Windows,
+    /// qui attend son retour avant de suspendre le système. Un cycle en cours est attendu au plus <see cref="PauseWait"/>.
+    /// </summary>
+    public void Pause(string reason)
+    {
+        _pausedFor = 0;
+        _paused = true;
+        var entered = _cycleLock.TryEnter(PauseWait);
+        try
+        {
+            LogPaused(_logger, reason);
+            HandBackAll(reason);
+        }
+        finally
+        {
+            if (entered)
+            {
+                _cycleLock.Exit();
+            }
+        }
+    }
+
+    /// <summary>Reprise après une pause : au cycle suivant, chaque groupe repart en douceur de la ventilation du BIOS.</summary>
+    public void Resume(string reason)
+    {
+        if (!_paused)
+        {
+            return;
         }
 
-        var tick = new EngineTick(_clock(), _options.Mode, writing, _fanControlRunning, results);
-        WriteShadowLog(tick, dtSeconds);
-        WriteLiveStatus(tick, values);
-        return tick;
+        _paused = false;
+        LogResumedAfterPause(_logger, reason);
     }
 
     /// <summary>
@@ -479,6 +545,12 @@ public sealed partial class RegulationEngine : IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Journal des décisions de nouveau écrit")]
     private static partial void LogShadowLogRestored(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Pause de la régulation : {Reason}")]
+    private static partial void LogPaused(ILogger logger, string reason);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Fin de la pause, FanOMax reprend la main : {Reason}")]
+    private static partial void LogResumedAfterPause(ILogger logger, string reason);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Régulateurs réinitialisés : {Reason}")]
     private static partial void LogRegulatorsReset(ILogger logger, string reason);

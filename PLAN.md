@@ -230,7 +230,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 - [x] Boucle de régulation à 1 Hz (PeriodicTimer, dt mesuré), groupes CPU et GPU
 - [x] Config JSON commentée, générée au premier démarrage depuis le matériel détecté, rechargée à chaud, avec validation (config invalide refusée)
 - [x] **Mode fantôme** (par défaut) : consignes calculées, jamais écrites, journalisées avec le % réellement appliqué (`shadow-AAAAMMJJ.csv`)
-- [x] Failsafe complet (§6) : capteur perdu → BIOS puis reprise après 30 s, température critique → 100 %, erreurs → BIOS, arrêt → BIOS
+- [x] Failsafe complet (§6) : capteur perdu → BIOS puis reprise après 30 s, température critique → 100 %, erreurs → BIOS, arrêt → BIOS, veille / hibernation / arrêt avec démarrage rapide → BIOS (2026-10-12)
 - [x] Watchdog sur thread dédié (boucle bloquée > 5 s → BIOS)
 - [x] Détection de FanControl : aucune écriture tant qu'il tourne, et jamais de retour au BIOS sous ses pieds
 - [x] Journaux Serilog (14 jours) avec résumé par minute
@@ -330,6 +330,7 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` fait
 | 2026-10-07 | Mode fantôme : régulateur alimenté par une **température estimée** (mesure + c × écart de ventilation, filtré 30 s) | Sans cela, boucle ouverte et PI emballé vers 90 % (incident du premier démarrage, TROUBLESHOOT.md §5) |
 | 2026-10-09 | Le journal des décisions ne peut jamais interrompre la régulation | Incident disque plein du 2026-10-08 : le service s'était arrêté |
 | 2026-10-09 | Pause > 10 s (et > 5 intervalles) = veille : régulateurs réinitialisés, watchdog ignoré | Incident du réveil du 2026-10-08 (pas de temps de 83 298 s) |
+| 2026-10-12 | Veille, hibernation, arrêt avec démarrage rapide : retour au BIOS **avant** la suspension (notification de Windows), reprise en douceur au réveil | Ces transitions n'arrêtent pas le service : les ventilateurs restaient figés sur la dernière consigne |
 | 2026-10-09 | Pas de détection « valeur figée » sur le GPU | Capteurs entiers stables au repos (692 s mesurés) : fausses alertes |
 | 2026-10-09 | **Cible CPU : 69 °C** (`TargetTemperature` du groupe CPU dans `config.json`), profil Normal conservé pour le reste | Choix utilisateur après le bilan fantôme : Normal (67 °C) ventilait jusqu'à 76 % en charge contre 52 % avec FanControl ; 69 °C garde un niveau sonore proche de l'actuel |
 | 2026-10-09 | **Plancher de protection CPU** sur température lissée 2 s : 40 % à 74 °C, 70 % à 78 °C, 100 % à 82 °C (hors régime limité) | Pic réel à 84,9 °C au premier pilotage : le PI (lissage 10 s) réagit trop lentement à une vraie montée de 30 s |

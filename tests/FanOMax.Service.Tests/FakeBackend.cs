@@ -78,12 +78,16 @@ internal sealed class FakeBackend : IHardwareBackend
     /// <summary>Si défini, Update lève cette exception.</summary>
     public Exception? UpdateFailure { get; set; }
 
+    /// <summary>Si défini, appelé au début de Update (par exemple pour bloquer un cycle).</summary>
+    public Action? OnUpdate { get; set; }
+
     public int UpdateCount { get; private set; }
 
     public void Set(string id, float? value) => _values[id] = value;
 
     public void Update()
     {
+        OnUpdate?.Invoke();
         UpdateCount++;
         if (UpdateFailure is not null)
         {

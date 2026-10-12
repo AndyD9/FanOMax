@@ -81,6 +81,82 @@ public sealed class ResilienceTests : IDisposable
         Assert.True(Math.Abs(after) < Math.Abs(before), $"avant {before:0.0}, après {after:0.0}");
     }
 
+    [Fact]
+    public void Pause_HandsBackToBios_AndStopsWritingUntilResume()
+    {
+        var backend = new FakeBackend();
+        var engine = new RegulationEngine(backend, Options(OperatingMode.Active), NullLogger.Instance, () => false);
+        engine.Tick(1);
+
+        // Mise en veille ou arrêt avec démarrage rapide : le service tourne encore, mais les sorties reviennent au BIOS.
+        engine.Pause("test");
+        Assert.True(engine.Paused);
+        Assert.Equal(new[] { Fan1, Fan2, Fan7, GpuFan }.Order(StringComparer.Ordinal), backend.Restores.Order(StringComparer.Ordinal));
+        Assert.Empty(engine.WrittenControls);
+
+        // Cycles entre l'annonce et la suspension effective : aucune écriture.
+        var writes = backend.Writes.Count;
+        var tick = engine.Tick(1);
+        Assert.False(tick.WritingAllowed);
+        Assert.Equal(writes, backend.Writes.Count);
+
+        engine.Resume("test");
+        Assert.True(engine.Tick(1).WritingAllowed);
+        Assert.True(backend.Writes.Count > writes);
+    }
+
+    [Fact]
+    public void Pause_WithoutResumeNotification_EndsAfterTimeout()
+    {
+        var backend = new FakeBackend();
+        var engine = new RegulationEngine(backend, Options(OperatingMode.Active), NullLogger.Instance, () => false);
+        engine.Pause("veille annulée sans notification");
+
+        for (var i = 0; i < RegulationEngine.PauseTimeoutSeconds - 1; i++)
+        {
+            Assert.False(engine.Tick(1).WritingAllowed);
+        }
+
+        Assert.True(engine.Tick(1).WritingAllowed);
+        Assert.False(engine.Paused);
+    }
+
+    [Fact]
+    public async Task Pause_WhileACycleIsStuck_StillHandsBackAfterTheWait()
+    {
+        var backend = new FakeBackend();
+        var engine = new RegulationEngine(backend, Options(OperatingMode.Active), NullLogger.Instance, () => false);
+        engine.Tick(1);
+
+        using var cycleStarted = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        backend.OnUpdate = () =>
+        {
+            cycleStarted.Set();
+            release.Wait();
+        };
+        var stuck = Task.Run(() => engine.Tick(1));
+        cycleStarted.Wait();
+
+        // Le cycle bloqué n'est attendu qu'un temps borné : Windows n'attend pas indéfiniment avant de suspendre.
+        engine.Pause("test");
+        Assert.Equal(4, backend.Restores.Count);
+
+        // Le cycle débloqué voit la pause : il ne réécrit pas les sorties rendues au BIOS.
+        var writes = backend.Writes.Count;
+        release.Set();
+        Assert.False((await stuck).WritingAllowed);
+        Assert.Equal(writes, backend.Writes.Count);
+        Assert.Empty(engine.WrittenControls);
+    }
+
+    [Fact]
+    public void PowerNotifications_RegisterAndUnregisterWithWindows()
+    {
+        // Pas de veille simulable ici : vérifie au moins la signature des appels natifs (sans droits administrateur).
+        using var notifications = PowerNotifications.Register(() => { }, () => { });
+    }
+
     [Theory]
     [InlineData(1.0, 1, false)]      // cycle normal
     [InlineData(3.5, 1, false)]      // cycle lent (machine chargée)
