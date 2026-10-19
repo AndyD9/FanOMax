@@ -1,0 +1,43 @@
+{
+  // FanOMax : ÉTAPE 4b : le réglage de jeu de l'étape 3b (CPU à 73 °C, profil Silence) ET le ventilateur du GPU.
+  // À utiliser à la place de etape-4-gpu.json, qui reprend l'étape 3 (CPU à 69 °C, profil Normal), jugée trop bruyante en jeu.
+  // GPU : point chaud (hot spot), cible 82 °C fixée ici (le profil Silence seul viserait 85 °C), 100 % au-delà de 105 °C.
+  // Le modèle GPU n'est calibré que jusqu'à 165 W (180–195 W en jeu) : le PI corrige l'écart.
+  // À vérifier : « appliqué » ≈ « consigne » pour le GPU (le pilote AMD ne doit pas reprendre la main),
+  // et, à l'arrêt du service, retour du ventilateur GPU au mode automatique du pilote.
+  // Si le GPU est trop bruyant en jeu : enlever la ligne "TargetTemperature" du GPU (85 °C du profil Silence).
+  // Retour arrière : etape-3b-groupe-cpu-jeu.json (CPU seul) ou etape-0-fantome.json (plus rien n'est piloté).
+  "FanOMax": {
+    "Mode": "Active",
+    "Profile": "Silence",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        // Fan #1 ventirad · Fan #2 haut, 2 ventilateurs en hub (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté)
+        // · Fan #7 arrière (extraction).
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
+        // Pression positive : extracteurs à 75 % de la consigne (voir etape-3-groupe-cpu.json).
+        "ControlScales": { "/lpc/nct6796dr/0/control/1": 0.75, "/lpc/nct6796dr/0/control/6": 0.75 },
+        "TargetTemperature": 73,
+        "CriticalTemperature": 90
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        "Enabled": true,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ],
+        "TargetTemperature": 82,
+        "CriticalTemperature": 105
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}

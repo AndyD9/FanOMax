@@ -68,10 +68,10 @@ Outil Windows qui remplace **FanControl** pour piloter les ventilateurs avec :
 0. ✅ **Réglage CPU dans Ryzen Master (2026-10-10)** : Curve Optimizer d'Hydra remis, limites PBO d'Hydra remises (PPT 142 W, EDC 168 A, TDC 114 A, THM limit 80 °C). Test de Ryzen Master de 13:02 à 15:58 sans aucune erreur :
    - 16 min en charge lourde : 113–121 W, 71–74 °C, 4,68 GHz effectifs sur les 8 cœurs ;
    - puis 2 h 40 de charge concentrée par paliers (≈ 65 W, 67–74 °C).
-1. **Surveiller la carte « Stabilité » quelques jours** : aucun « Redémarrage imprévu » (les « Arrêts non terminés » ne comptent pas), et pas d'erreur processeur corrigée (WHEA 19) sur un cœur. Si une erreur apparaît, remonter le Curve Optimizer de ce cœur de 3 à 5 crans.
+1. ✅ **Carte « Stabilité » surveillée du 2026-10-12 au 19** : aucune erreur WHEA, un seul « Arrêt non terminé » (14/10, démarrage rapide), pause avant la veille vue dans le journal les 13/10 et 17/10. Critères : aucun « Redémarrage imprévu » (les « Arrêts non terminés » ne comptent pas), et pas d'erreur processeur corrigée (WHEA 19) sur un cœur. Si une erreur apparaît, remonter le Curve Optimizer de ce cœur de 3 à 5 crans.
 2. ✅ **Bascule reprise à l'étape 3** (2026-10-10, 16:04). Ventilateurs avant (Fan #4, sans régime remonté) vérifiés à l'œil : ils tournent.
 3. ✅ **Journal relu après une longue session de jeu** (2026-10-10 soir) : trop bruyant à 69 °C → étape 3b (73 °C, Silence), voir §2. Si c'est encore trop fort : cible 74–75 °C. Le plancher de protection pourrait démarrer plus haut avec cette cible (il bascule souvent sans effet), à décider.
-4. Si c'est bon, **étape 4 : piloter le GPU**. Fichier **prêt** : `docs/phase7/etape-4-gpu.json` (validé par le test des configurations) :
+4. **Étape 4 : piloter le GPU**. Fichier **prêt** : `docs/phase7/etape-4b-gpu-jeu.json` (2026-10-19, validé par le test des configurations), qui garde pour le CPU le réglage de jeu 3b (73 °C, Silence). `etape-4-gpu.json` reprend l'étape 3 (69 °C, Normal) : ne plus l'utiliser. En cmd **administrateur** : `copy /Y docs\phase7\etape-4b-gpu-jeu.json C:\ProgramData\FanOMax\config.json` (rechargé à chaud, sans redémarrer le service) :
    - groupe GPU activé (`/gpu-amd/0/control/0`, point chaud `/gpu-amd/0/temperature/7`, puissance `/gpu-amd/0/power/3`, cible 82 °C) ;
    - vérifier que le ventilateur GPU suit vraiment la consigne (`applied_percent` ≈ `decision_percent`) et que le pilote AMD (Adrenalin) ne reprend pas la main ;
    - modèle GPU calibré seulement jusqu'à 165 W ; en jeu, il monte à 180–195 W.

@@ -80,7 +80,7 @@ Le journal confirme chaque étape : `Groupe Identification Fan #1 : — → Fixe
 | Étape | Ce que pilote FanOMax | Durée d'observation | Contrôle |
 |---|---|---|---|
 | 3 | Groupe CPU complet (ventirad + boîtier) : `etape-3-groupe-cpu.json` | 1 à 2 jours, dont une session de jeu | `.\probe shadow-report --days 1` : températures, bruit, états |
-| 4 | + le GPU (fichier préparé après l'étape 3) | 1 à 2 jours | point chaud ≤ 85 °C, ventilateur GPU qui suit vraiment la consigne |
+| 4 | + le GPU : `etape-4b-gpu-jeu.json` (CPU réglé comme à l'étape 3b ; `etape-4-gpu.json` reprend l'étape 3) | 1 à 2 jours | point chaud ≤ 85 °C, ventilateur GPU qui suit vraiment la consigne |
 | 5 | Tests finaux | 2 h | Cinebench 30 min, jeu 1 h ; `Stop-Service` → retour au BIOS audible ; `Start-Service` → reprise en douceur |
 
 ```powershell
