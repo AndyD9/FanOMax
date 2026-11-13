@@ -67,6 +67,34 @@ public sealed class GroupOptions
     public double? FixedPercent { get; set; }
 
     /// <summary>
+    /// Plafond de la régulation (%) ; null = 100. Borne le bruit : au-delà, la cible est dépassée plutôt que de ventiler
+    /// plus fort. Seules la température critique et la perte de capteur passent encore à 100 %.
+    /// </summary>
+    public double? MaxPercent { get; set; }
+
+    /// <summary>
+    /// Cible glissante (°C) ; null = 0 (cible fixe). La cible monte de cette valeur quand la ventilation va du minimum au
+    /// plafond : avec 73 °C et 3, FanOMax vise 73 °C à faible charge et 76 °C au plafond. La ventilation suit la charge
+    /// avec une pente bien plus douce.
+    /// </summary>
+    public double? TargetDroop { get; set; }
+
+    /// <summary>Écart minimal pour modifier la consigne (%) ; null = 1. Plus grand = moins de petites variations audibles.</summary>
+    public double? Deadband { get; set; }
+
+    /// <summary>Montée maximale de la consigne (% par seconde) ; null = 5.</summary>
+    public double? MaxRisePerSecond { get; set; }
+
+    /// <summary>Fenêtre de moyenne de la puissance pour l'anticipation (s) ; null = 25. Plus longue = ventilation plus stable.</summary>
+    public double? PowerWindowSeconds { get; set; }
+
+    /// <summary>
+    /// Plancher de protection (ventilation minimale selon la température à peine lissée) ; vide = courbe du profil
+    /// (CPU : 74 °C → 40 %, 78 °C → 70 %, 82 °C → 100 % ; GPU : aucune). À décaler quand la cible est relevée.
+    /// </summary>
+    public List<CurvePointOptions> ProtectionCurve { get; set; } = [];
+
+    /// <summary>
     /// Facteur appliqué à la consigne du groupe, par sortie PWM (sortie absente = 1). Exemple : 0,6 sur l'avant = les
     /// ventilateurs d'admission reçoivent 60 % de la consigne, pour régler l'équilibre admission / extraction.
     /// Résultat borné entre 20 et 100 % ; ignoré à la température critique et en ventilation fixe (tout le groupe au même %).
@@ -74,6 +102,14 @@ public sealed class GroupOptions
     public Dictionary<string, double> ControlScales { get; set; } = new(StringComparer.Ordinal);
 
     public double EffectiveCriticalTemperature => CriticalTemperature ?? (Kind == GroupKind.Cpu ? 90 : 105);
+}
+
+/// <summary>Point d'une courbe température → % de ventilation.</summary>
+public sealed class CurvePointOptions
+{
+    public double Temperature { get; set; }
+
+    public double Percent { get; set; }
 }
 
 public sealed class SafetyOptions

@@ -85,6 +85,86 @@ public class ConfigurationTests
     }
 
     [Fact]
+    public void SofteningOptions_AreBound_Validated_AndApplied()
+    {
+        var options = Bind("""
+            { "FanOMax": { "Mode": "Active", "Profile": "Silence", "Groups": [ {
+                "Name": "CPU", "Kind": "Cpu", "Controls": [ "/lpc/nct6796dr/0/control/0" ], "TargetTemperature": 73,
+                "MaxPercent": 70, "MaxRisePerSecond": 2, "PowerWindowSeconds": 60, "TargetDroop": 3, "Deadband": 3,
+                "ProtectionCurve": [ { "Temperature": 77, "Percent": 40 }, { "Temperature": 82, "Percent": 70 } ]
+            } ] } }
+            """);
+
+        Assert.Empty(FanOMaxOptionsValidator.Validate(options));
+
+        var backend = new FakeBackend();
+        var group = Engine.GroupRuntime.Resolve(options.Groups[0], options.Profile, backend, out var error);
+
+        Assert.Null(error);
+        Assert.Equal(70, group!.Settings.MaxPercent);
+        Assert.Equal(3, group.Settings.TargetDroop);
+        Assert.Equal(3, group.Settings.Deadband);
+        Assert.Equal(2, group.Settings.MaxRisePerSecond);
+        Assert.Equal(60, group.Settings.PowerWindowSeconds);
+        Assert.Equal([(77d, 40d), (82d, 70d)], group.Settings.ProtectionCurve);
+
+        // 76 °C à 118 W (cible intenable, sous le régime limité thermiquement) : la régulation s'arrête à 70 %.
+        // Seule la température critique (90 °C) donne encore 100 %.
+        backend.Set(CpuPower, 118);
+        using var engine = new Engine.RegulationEngine(backend, options, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, () => false);
+        var max = 0d;
+        for (var i = 0; i < 200; i++)
+        {
+            backend.Set(CpuTemp, 76 + ((i % 3) * 0.125f));
+            max = Math.Max(max, engine.Tick(1).Groups[0].Percent);
+        }
+
+        Assert.Equal(70, max, precision: 6);
+
+        // La cible publiée (journal, interface) est la cible glissante : 73 °C + 3 °C au plafond.
+        var tick = engine.Tick(1).Groups[0];
+        Assert.Equal(76, tick.Target, precision: 6);
+
+        backend.Set(CpuTemp, 91);
+        Assert.Equal(100, engine.Tick(1).Groups[0].Percent);
+    }
+
+    [Fact]
+    public void SofteningOptions_DefaultToTheProfile()
+    {
+        var group = Engine.GroupRuntime.Resolve(Valid().Groups[0], Core.Control.FanProfile.Silence, new FakeBackend(), out _);
+
+        Assert.Equal(100, group!.Settings.MaxPercent);
+        Assert.Equal(5, group.Settings.MaxRisePerSecond);
+        Assert.Equal(25, group.Settings.PowerWindowSeconds);
+        Assert.Equal(Core.Control.RegulatorSettings.CpuProtectionCurve, group.Settings.ProtectionCurve);
+    }
+
+    [Theory]
+    [InlineData(30, 2, 60, false)]
+    [InlineData(70, 0.1, 60, false)]
+    [InlineData(70, 2, 300, false)]
+    [InlineData(70, 2, 60, true)]
+    public void Validate_SofteningOptionsMustStayInRange(double maxPercent, double rise, double window, bool valid)
+    {
+        var options = Valid();
+        options.Groups[0].MaxPercent = maxPercent;
+        options.Groups[0].MaxRisePerSecond = rise;
+        options.Groups[0].PowerWindowSeconds = window;
+
+        Assert.Equal(valid, FanOMaxOptionsValidator.Validate(options).Count == 0);
+    }
+
+    [Fact]
+    public void Validate_RejectsAProtectionCurveThatGoesDown()
+    {
+        var options = Valid();
+        options.Groups[0].ProtectionCurve = [new() { Temperature = 80, Percent = 60 }, new() { Temperature = 78, Percent = 70 }];
+
+        Assert.Contains(FanOMaxOptionsValidator.Validate(options), e => e.Contains("croissante", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Validate_IgnoresDisabledGroups()
     {
         var options = Valid();

@@ -432,7 +432,7 @@ public sealed partial class RegulationEngine : IDisposable
 
         return new GroupTick(
             group.Name,
-            group.Settings.TargetTemperature,
+            group.Regulator.EffectiveTarget,
             temperature,
             regulatorTemperature,
             power,

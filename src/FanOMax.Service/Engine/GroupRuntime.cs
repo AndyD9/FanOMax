@@ -130,6 +130,18 @@ internal sealed class GroupRuntime
             settings = settings with { TargetTemperature = target };
         }
 
+        settings = settings with
+        {
+            MaxPercent = options.MaxPercent ?? settings.MaxPercent,
+            TargetDroop = options.TargetDroop ?? settings.TargetDroop,
+            Deadband = options.Deadband ?? settings.Deadband,
+            MaxRisePerSecond = options.MaxRisePerSecond ?? settings.MaxRisePerSecond,
+            PowerWindowSeconds = options.PowerWindowSeconds ?? settings.PowerWindowSeconds,
+            ProtectionCurve = options.ProtectionCurve.Count > 0
+                ? options.ProtectionCurve.Select(p => (p.Temperature, p.Percent)).ToList()
+                : settings.ProtectionCurve,
+        };
+
         error = null;
         return new GroupRuntime(options, settings, temperature, power, controlIds, controlSensors);
     }

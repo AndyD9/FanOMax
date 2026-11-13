@@ -78,6 +78,42 @@ public static class FanOMaxOptionsValidator
                 errors.Add($"Groupe {label} : FixedPercent doit être entre 20 et 100 %.");
             }
 
+            if (group.MaxPercent is < 40 or > 100)
+            {
+                errors.Add($"Groupe {label} : MaxPercent doit être entre 40 et 100 %.");
+            }
+
+            if (group.TargetDroop is < 0 or > 10)
+            {
+                errors.Add($"Groupe {label} : TargetDroop doit être entre 0 et 10 °C.");
+            }
+
+            if (group.Deadband is < 0.5 or > 5)
+            {
+                errors.Add($"Groupe {label} : Deadband doit être entre 0,5 et 5 %.");
+            }
+
+            if (group.MaxRisePerSecond is < 0.5 or > 20)
+            {
+                errors.Add($"Groupe {label} : MaxRisePerSecond doit être entre 0,5 et 20 % par seconde.");
+            }
+
+            if (group.PowerWindowSeconds is < 5 or > 120)
+            {
+                errors.Add($"Groupe {label} : PowerWindowSeconds doit être entre 5 et 120 s.");
+            }
+
+            var curve = group.ProtectionCurve;
+            if (curve.Any(p => p.Percent is < 20 or > 100 || p.Temperature is < 40 or > 110 || double.IsNaN(p.Percent) || double.IsNaN(p.Temperature)))
+            {
+                errors.Add($"Groupe {label} : ProtectionCurve, chaque point doit être entre 40 et 110 °C et entre 20 et 100 %.");
+            }
+
+            if (curve.Zip(curve.Skip(1), (a, b) => b.Temperature <= a.Temperature || b.Percent < a.Percent).Any(wrong => wrong))
+            {
+                errors.Add($"Groupe {label} : ProtectionCurve doit être croissante (températures et %).");
+            }
+
             foreach (var (control, scale) in group.ControlScales)
             {
                 if (!group.Controls.Contains(control, StringComparer.Ordinal))

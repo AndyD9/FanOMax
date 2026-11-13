@@ -29,6 +29,12 @@ public sealed record RegulatorSettings
     /// <summary>Température visée (°C).</summary>
     public double TargetTemperature { get; init; } = 67;
 
+    /// <summary>
+    /// Cible glissante (°C) : la cible monte de cette valeur quand la ventilation va de <see cref="MinPercent"/> à
+    /// <see cref="MaxPercent"/>. 0 = cible fixe. Divise la pente « % de ventilation par watt » de l'anticipation et du PI.
+    /// </summary>
+    public double TargetDroop { get; init; }
+
     /// <summary>Modèle statique utilisé pour l'anticipation.</summary>
     public StaticThermalModel Model { get; init; } = StaticThermalModel.Ryzen5800XPhase1;
 
@@ -42,6 +48,10 @@ public sealed record RegulatorSettings
 
     public double MinPercent { get; init; } = 25;
 
+    /// <summary>
+    /// Plafond de la régulation (%), plancher de protection et régime limité thermiquement compris.
+    /// Sous 100, le bruit est borné : la cible peut alors être dépassée à forte puissance (mode TargetUnreachable).
+    /// </summary>
     public double MaxPercent { get; init; } = 100;
 
     /// <summary>Montée maximale de la consigne (% par seconde).</summary>

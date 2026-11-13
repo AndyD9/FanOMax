@@ -1,0 +1,62 @@
+{
+  // FanOMax : ÉTAPE 4c : l'étape 4b (CPU à 73 °C en profil Silence, GPU piloté), sans les emballements du groupe CPU.
+  // Demande une version du service du 2026-11-13 ou plus récente (scripts\install-service.ps1) : une version plus ancienne
+  // ignore les réglages ajoutés et se comporte comme à l'étape 4b.
+  // Constat (journaux du 6 au 12/11, 18 h 40 en charge) : 549 s à 85 % ou plus, 108 montées de plus de 25 points en 15 s.
+  //   - anticipation : 2,9 % de ventilation par watt, donc de 25 à 100 % entre 90 et 115 W, la plage du jeu ;
+  //   - plancher de protection du profil : il démarre à 74 °C, 1 °C au-dessus de la cible, et vise 100 % à 82 °C.
+  // Réglages du groupe CPU :
+  //   - TargetDroop 3 : cible glissante, 73 °C au minimum de ventilation, 76 °C au plafond ; la ventilation suit la charge
+  //     avec une pente plus douce (2 % par watt au lieu de 2,9) au lieu de défendre 73 °C au degré près ;
+  //   - MaxPercent 70 : plafond de la régulation ; seule la température critique (90 °C) donne encore 100 % ;
+  //   - ProtectionCurve : plancher décalé avec la cible (78 °C → 40 %, 83 °C → 70 %) ;
+  //   - Deadband 3 (1 par défaut) : la consigne ne bouge plus pour moins de 3 points ;
+  //   - MaxRisePerSecond 2 (5 par défaut) et PowerWindowSeconds 60 (25 par défaut) : montées plus lentes, plus rares.
+  // Attendu (rejeu des mêmes journaux, estimation) : une dizaine de secondes par semaine à 70 % ou plus au lieu de 2 550,
+  // 9 montées brusques au lieu de 110, quatre fois moins de variations de consigne, + 0,5 °C en moyenne,
+  // environ 430 s à 80 °C ou plus au lieu de 140. Une salve de 137 W (89 °C mesurés le 11/11, ventilateurs à 100 %)
+  // atteindrait 90 °C : la température critique donnerait alors 100 % pendant une dizaine de secondes.
+  // Encore trop fort : MaxPercent 60. Trop chaud : TargetDroop 0, ou retour à etape-4b-gpu-jeu.json.
+  "FanOMax": {
+    "Mode": "Active",
+    "Profile": "Silence",
+    "IntervalSeconds": 1,
+    "Groups": [
+      {
+        "Name": "CPU",
+        "Kind": "Cpu",
+        "Enabled": true,
+        "TemperatureSensor": "/amdcpu/0/temperature/2",
+        "PowerSensor": "/amdcpu/0/power/0",
+        // Fan #1 ventirad · Fan #2 haut, 2 ventilateurs en hub (extraction) · Fan #4 avant, hub de 3 (admission, sans régime remonté)
+        // · Fan #7 arrière (extraction).
+        "Controls": [ "/lpc/nct6796dr/0/control/0", "/lpc/nct6796dr/0/control/1", "/lpc/nct6796dr/0/control/3", "/lpc/nct6796dr/0/control/6" ],
+        // Pression positive : extracteurs à 75 % de la consigne (voir etape-3-groupe-cpu.json).
+        "ControlScales": { "/lpc/nct6796dr/0/control/1": 0.75, "/lpc/nct6796dr/0/control/6": 0.75 },
+        "TargetTemperature": 73,
+        "CriticalTemperature": 90,
+        "TargetDroop": 3,
+        "MaxPercent": 70,
+        "Deadband": 3,
+        "MaxRisePerSecond": 2,
+        "PowerWindowSeconds": 60,
+        "ProtectionCurve": [
+          { "Temperature": 78, "Percent": 40 },
+          { "Temperature": 83, "Percent": 70 }
+        ]
+      },
+      {
+        "Name": "GPU",
+        "Kind": "Gpu",
+        "Enabled": true,
+        "TemperatureSensor": "/gpu-amd/0/temperature/7",
+        "PowerSensor": "/gpu-amd/0/power/3",
+        "Controls": [ "/gpu-amd/0/control/0" ],
+        "TargetTemperature": 82,
+        "CriticalTemperature": 105
+      }
+    ],
+    "Safety": { "WatchdogSeconds": 5, "MaxConsecutiveErrors": 5, "ResumeAfterSeconds": 30 },
+    "ShadowLog": { "Enabled": true, "RetentionDays": 7 }
+  }
+}

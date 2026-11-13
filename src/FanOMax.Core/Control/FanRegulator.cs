@@ -64,11 +64,18 @@ public sealed class FanRegulator
         _pi = new PiController(settings.Pi);
         _shaper = new OutputShaper(settings.MaxRisePerSecond, settings.MaxFallPerSecond, settings.Deadband);
         _lastFeedforward = settings.MinPercent;
+        EffectiveTarget = settings.TargetTemperature;
         _protectionFilter = new Ema(settings.ProtectionTimeConstant);
         _protectionCurve = settings.ProtectionCurve is { Count: > 0 } points ? new FanCurve(points) : null;
     }
 
     public RegulatorSettings Settings => _settings;
+
+    /// <summary>
+    /// Cible réellement visée au dernier cycle (°C) : <see cref="RegulatorSettings.TargetTemperature"/>, relevée par la
+    /// cible glissante (<see cref="RegulatorSettings.TargetDroop"/>) selon la ventilation en cours.
+    /// </summary>
+    public double EffectiveTarget { get; private set; }
 
     /// <summary>Vrai pendant le préchauffage : la moyenne de puissance n'a pas encore une fenêtre complète.</summary>
     public bool WarmingUp => _elapsed < _settings.PowerWindowSeconds;
@@ -106,10 +113,27 @@ public sealed class FanRegulator
         var filteredTemp = _temperatureFilter.Update(temp.Value, dtSeconds);
         double? filteredPower = watts is { } w ? _powerFilter.Update(w, dtSeconds) : _powerFilter.Value;
 
+        // Cible glissante : la cible monte de TargetDroop °C quand la ventilation va du minimum au plafond.
+        // Tenir la cible au degré près coûte toute la plage de ventilation pour quelques watts (2,9 % par watt sur le 5800X) ;
+        // accepter quelques degrés de plus à forte charge divise cette pente, et la ventilation suit la charge sans à-coups.
+        var range = _settings.MaxPercent - _settings.MinPercent;
+        var droopPerPercent = range > 0 ? _settings.TargetDroop / range : 0;
+        var currentPercent = Math.Clamp(_shaper.Current ?? _settings.MinPercent, _settings.MinPercent, _settings.MaxPercent);
+        var setpoint = _settings.TargetTemperature + (droopPerPercent * (currentPercent - _settings.MinPercent));
+        EffectiveTarget = setpoint;
+
         // Puissance indisponible : on garde la dernière anticipation, le PI corrige le reste.
         if (filteredPower is { } p)
         {
+            // Ventilation f telle que le modèle donne la cible glissante à cette ventilation :
+            // Intercept + PowerGain·P − FanGain·f = Target + droop·(f − Min), d'où la pente réduite ci-dessous.
             var required = _settings.Model.RequiredFan(p, _settings.TargetTemperature);
+            var fanGain = _settings.Model.FanGain;
+            if (droopPerPercent > 0 && fanGain > 0)
+            {
+                required = _settings.MinPercent + ((required - _settings.MinPercent) * fanGain / (fanGain + droopPerPercent));
+            }
+
             _lastFeedforward = double.IsFinite(required) ? Math.Clamp(required, _settings.MinPercent, _settings.MaxPercent) : _lastFeedforward;
         }
 
@@ -119,23 +143,23 @@ public sealed class FanRegulator
         RegulatorMode mode;
         if (_thermalLimited)
         {
-            target = _settings.ThermalLimit!.FanPercent;
-            _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
+            target = Math.Min(_settings.ThermalLimit!.FanPercent, _settings.MaxPercent);
+            _pi.Update(filteredTemp, setpoint, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
             mode = RegulatorMode.ThermalLimited;
         }
-        else if (warmingUp && _primedPercent is { } primed && filteredTemp <= _settings.TargetTemperature + 3)
+        else if (warmingUp && _primedPercent is { } primed && filteredTemp <= setpoint + 3)
         {
             // Démarrage en douceur : on garde la ventilation trouvée, PI gelé, le temps que la moyenne de puissance soit fiable.
-            _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
+            _pi.Update(filteredTemp, setpoint, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent, freeze: true);
             target = primed;
             mode = RegulatorMode.Normal;
         }
         else
         {
-            target = _pi.Update(filteredTemp, _settings.TargetTemperature, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent);
+            target = _pi.Update(filteredTemp, setpoint, dtSeconds, _lastFeedforward, _settings.MinPercent, _settings.MaxPercent);
 
             // Pendant le préchauffage, l'anticipation repose sur trop peu de valeurs pour conclure à une cible inatteignable.
-            var unreachable = !warmingUp && target >= _settings.MaxPercent && filteredTemp > _settings.TargetTemperature + 1;
+            var unreachable = !warmingUp && target >= _settings.MaxPercent && filteredTemp > setpoint + 1;
             mode = unreachable ? RegulatorMode.TargetUnreachable : RegulatorMode.Normal;
         }
 
@@ -144,7 +168,8 @@ public sealed class FanRegulator
         var fastTemp = _protectionFilter.Update(temp.Value, dtSeconds);
         if (_protectionCurve is { } curve && !_thermalLimited && fastTemp >= _settings.ProtectionCurve![0].Temperature)
         {
-            var floor = curve.Evaluate(fastTemp);
+            // Le plafond de régulation borne aussi le plancher : au-delà, seule la température critique donne 100 %.
+            var floor = Math.Min(curve.Evaluate(fastTemp), _settings.MaxPercent);
             if (floor > target)
             {
                 target = floor;
@@ -161,7 +186,8 @@ public sealed class FanRegulator
                 : $"Puissance : {_powerGuard.Reason}";
         }
 
-        var output = _shaper.Update(target, dtSeconds);
+        var atBound = target <= _settings.MinPercent || target >= _settings.MaxPercent;
+        var output = _shaper.Update(target, dtSeconds, exact: atBound);
         return new RegulatorDecision(output, mode, filteredTemp, filteredPower, _lastFeedforward, target - _lastFeedforward, reason);
     }
 

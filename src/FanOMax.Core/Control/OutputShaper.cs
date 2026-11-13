@@ -11,7 +11,11 @@ public sealed class OutputShaper(double maxRisePerSecond, double maxFallPerSecon
 {
     public double? Current { get; private set; }
 
-    public double Update(double target, double dtSeconds)
+    /// <param name="exact">
+    /// Ignore la zone morte : pour une consigne en butée (minimum ou plafond), que la sortie doit rejoindre exactement
+    /// (sinon, avec une zone morte de 3 %, la ventilation au repos resterait à 28 % au lieu de 25 %).
+    /// </param>
+    public double Update(double target, double dtSeconds, bool exact = false)
     {
         if (Current is not { } current)
         {
@@ -19,7 +23,7 @@ public sealed class OutputShaper(double maxRisePerSecond, double maxFallPerSecon
             return target;
         }
 
-        if (Math.Abs(target - current) < deadband)
+        if (!exact && Math.Abs(target - current) < deadband)
         {
             return current;
         }
